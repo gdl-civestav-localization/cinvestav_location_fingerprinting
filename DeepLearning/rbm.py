@@ -123,17 +123,24 @@ class RBM(object):
         print 'serializing'
         state = self.__dict__
         del state['params']
+        del state['input']
+        del state['theano_rng']
+        state['W'] = state['W'].get_value()
+        state['h_bias'] = state['h_bias'].get_value()
+        state['v_bias'] = state['v_bias'].get_value()
         return state
 
     def __setstate__(self, state):
         print 'de-serializing'
-        self.W = state['W']
-        self.h_bias = state['h_bias']
-        self.input = state['input']
+        self.W = theano.shared(value=state['W'], name='W', borrow=True)
+        self.h_bias = theano.shared(value=state['h_bias'], name='h_bias', borrow=True)
         self.n_hidden = state['n_hidden']
         self.n_visible = state['n_visible']
-        self.theano_rng = state['theano_rng']
-        self.v_bias = state['v_bias']
+        self.v_bias = theano.shared(value=state['v_bias'], name='v_bias', borrow=True)
+        self.input = T.matrix('input')
+
+        numpy_rng = numpy.random.RandomState()
+        self.theano_rng = RandomStreams(numpy_rng.randint(2 ** 30))
         self.params = [self.W, self.h_bias, self.v_bias]
 
     def free_energy(self, v_sample):
@@ -583,12 +590,12 @@ def test_rbm(dataset='mnist.pkl.gz', n_chains=20, n_samples=10, plot_every=1000,
     image = Image.fromarray(image_data)
     image.save(os.path.join(output_folder, 'samples_plot_every' + str(plot_every) + '.png'))
 
-    # with open(name_model, 'wb') as f:
-    #     cPickle.dump(rbm, f, protocol=cPickle.HIGHEST_PROTOCOL)
+    with open(name_model, 'wb') as f:
+        cPickle.dump(rbm, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == '__main__':
-    train_rbm(n_hidden=800, training_epochs=50)
-    for i in range(0, 8, 1):
+    # train_rbm(n_hidden=800, training_epochs=3)
+    for i in range(0, 3, 1):
         print 'Starting i=' + str(10**i)
         test_rbm(n_chains=20, n_samples=10, plot_every=10**i)

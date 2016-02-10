@@ -117,7 +117,7 @@ class DBN(object):
                             n_visible=input_size,
                             n_hidden=hidden_layers_sizes[i],
                             W=sigmoid_layer.W,
-                            hbias=sigmoid_layer.b)
+                            h_bias=sigmoid_layer.b)
             self.rbm_layers.append(rbm_layer)
 
         # We now need to add a logistic layer on top of the MLP
@@ -174,7 +174,7 @@ class DBN(object):
 
             # compile the theano function
             fn = theano.function(
-                inputs=[index, theano.Param(learning_rate, default=0.1)],
+                inputs=[index, learning_rate],
                 outputs=cost,
                 updates=updates,
                 givens={

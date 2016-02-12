@@ -4,6 +4,9 @@ import random
 import DatasetManager
 import Preprocessing
 import SVM
+import theano
+import DeepLearning.rbm as rbm
+
 from matplotlib import pyplot as plt
 
 __author__ = 'Gibran'
@@ -77,37 +80,24 @@ def run_neuronal_perception(eta=.1, theta=.1, iteration=1000, a=10, b=.01, momen
 
 def run_dbn():
     train_set, test_set = get_sets(.8)
-    input_layer = train_set[1].shape[1]
 
-    # Create the NN
-    n = SVM.DeepBeliefNetwork(input_layer, num_output=2)
+    train_set_x = theano.shared(np.asarray(train_set[1], dtype=theano.config.floatX), borrow=True)
+    train_set_y = theano.shared(np.asarray(train_set[0], dtype=theano.config.floatX), borrow=True)
 
-    # Train it with some patterns
-    x = train_set[1]
-    y = train_set[0]
-    errors = n.train(x, y)
+    test_set_x = theano.shared(np.asarray(train_set[1], dtype=theano.config.floatX), borrow=True)
+    test_set_y = theano.shared(np.asarray(train_set[0], dtype=theano.config.floatX), borrow=True)
 
-    # Test Neuronal network
-    x = test_set[1]
-    y = test_set[0]
-    results, error = n.test(x, y)
+    rbm.train_rbm(
+        dataset=(train_set_x, train_set_y),
+        learning_rate=0.1,
+        training_epochs=50,
+        batch_size=20,
+        output_folder='rbm_plots_location',
+        n_hidden=500,
+        n_visible=len(train_set[0]),
+        name_model='rbm_location.save')
 
-    print error
-
-    # Plot desired output
-    plt.figure("Plot desired output")
-    plt.xlim(-20, 20)
-    plt.ylim(-20, 20)
-    plt.grid(True)
-    plt.plot(zip(*y)[0], zip(*y)[1], 'bx', linewidth=4)
-
-    # Plot output
-    plt.figure("Plot output")
-    plt.xlim(-20, 20)
-    plt.ylim(-20, 20)
-    plt.grid(True)
-    plt.plot(zip(*results)[0], zip(*results)[1], 'rx', linewidth=4)
-    plt.show()
+    rbm.test_rbm(dataset=(test_set_x, test_set_y), plot_every=1)
 
 
 def run_svm():

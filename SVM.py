@@ -3,12 +3,6 @@ from sklearn.ensemble import GradientBoostingRegressor
 import NeuronalNetwork
 import numpy as np
 
-import theano.tensor as T
-from lasagne import layers
-from lasagne.updates import nesterov_momentum
-from nolearn.lasagne import NeuralNet
-from lasagne import nonlinearities
-
 __author__ = 'Usuario'
 
 
@@ -25,60 +19,6 @@ class SVM:
         result = zip(*y)
         for i in xrange(len(self.machine)):
             self.machine[i].fit(x, result[i])
-
-    def test(self, dataset, targets):
-        self.result = []
-        for j in xrange(len(dataset)):
-            y = []
-            for i in xrange(len(self.machine)):
-                y.append(self.machine[i].predict(dataset[j])[0])
-            self.result.append(y)
-        return self.result, self.cost_function(targets)
-
-    def cost_function(self, targets):
-        cost = 0.0
-        for d in xrange(len(targets)):
-            for i in xrange(len(targets[d])):
-                error = targets[d][i] - self.result[d][i]  # e_j = d_j - y_j
-                cost += .5 * (error ** 2)
-        cost /= len(targets)
-        return cost
-
-
-class DeepBeliefNetwork:
-    machine = []
-    result = []
-
-    def multilabel_objective(predictions, targets):
-        epsilon = np.float32(1.0e-6)
-        one = np.float32(1.0)
-        pred = T.clip(predictions, epsilon, one - epsilon)
-        return -T.sum(targets * T.log(pred) + (one - targets) * T.log(one - pred), axis=1)
-
-    def __init__(self, input_layer, num_output=1):
-        self.net = NeuralNet(
-                # customize "layers" to represent the architecture you want
-                layers=[(layers.InputLayer, {"name": 'input', 'shape': (100, input_layer)}),
-                        (layers.DenseLayer, {"name": 'hidden1', 'num_units': 20}),
-                        (layers.DenseLayer, {"name": 'output', 'nonlinearity': nonlinearities.sigmoid, 'num_units': 2})], #because you have 13 outputs
-
-                # optimization method:
-                update=nesterov_momentum,
-                update_learning_rate=5*10**(-3),
-                update_momentum=0.9,
-
-                max_epochs=20,  # we want to train this many epochs
-                verbose=1,
-
-                #Here are the important parameters for multi labels
-                regression=True,
-
-                objective_loss_function=self.multilabel_objective,
-                custom_score=("validation score", lambda x, y: np.mean(np.abs(x - y)))
-                )
-
-    def train(self, x, y):
-        self.net.fit(x, y)
 
     def test(self, dataset, targets):
         self.result = []

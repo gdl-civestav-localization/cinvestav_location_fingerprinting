@@ -389,7 +389,7 @@ class RBM(object):
 
 
 def train_rbm(learning_rate=0.1, training_epochs=15,
-              dataset=None, batch_size=20,
+              dataset=None, batch_size=20, n_visible=28 * 28,
               output_folder='rbm_plots', n_hidden=500, name_model='rbm.save'):
     """
     Demonstrate how to train and afterwards sample from it using Theano.
@@ -425,7 +425,7 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
             borrow=True)
 
     # construct the RBM class
-    rbm = RBM(input=x, n_visible=28 * 28,
+    rbm = RBM(input=x, n_visible=n_visible,
               n_hidden=n_hidden, numpy_rng=rng, theano_rng=theano_rng)
 
     # get the cost and the gradient corresponding to one step of CD-15

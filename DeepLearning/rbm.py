@@ -389,7 +389,7 @@ class RBM(object):
 
 
 def train_rbm(learning_rate=0.1, training_epochs=15,
-              dataset='mnist.pkl.gz', batch_size=20,
+              dataset=None, batch_size=20,
               output_folder='rbm_plots', n_hidden=500, name_model='rbm.save'):
     """
     Demonstrate how to train and afterwards sample from it using Theano.
@@ -398,14 +398,12 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
     :param n_hidden:
     :param learning_rate: learning rate used for training the RBM
     :param training_epochs: number of epochs used for training
-    :param dataset: path the the pickled dataset
+    :param dataset: Theano shared array train samples and labels
     :param batch_size: size of a batch used to train the RBM
     :param name_model: Name of saved model file
     """
-    datasets = load_data(dataset)
 
-    train_set_x, train_set_y = datasets[0]
-    test_set_x, test_set_y = datasets[2]
+    [train_set_x, train_set_y] = dataset
 
     # compute number of mini-batches for training, validation and testing
     n_train_batches = train_set_x.get_value(borrow=True).shape[0] / batch_size
@@ -493,22 +491,16 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
         cPickle.dump(rbm, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
-def test_rbm(dataset='mnist.pkl.gz', n_chains=20, n_samples=10, plot_every=1000,
-             output_folder='rbm_plots', name_model='rbm.save'):
+def test_rbm(dataset=None, plot_every=1000, name_model='rbm.save'):
     """
     Demonstrate how to train and afterwards sample from it using Theano.
 
-    :param output_folder:
-    :param dataset: path the the pickled dataset
-    :param n_chains: number of parallel Gibbs chains to be used for sampling
-    :param n_samples: number of samples to plot for each chain
+    :param dataset: Theano shared array train samples and labels
     :param name_model: Name of saved model file
     :param plot_every: Number of steps before returning the sample for plotting
     """
-    datasets = load_data(dataset)
 
-    train_set_x, train_set_y = datasets[0]
-    test_set_x, test_set_y = datasets[2]
+    test_set_x, test_set_y = dataset
 
     rng = numpy.random.RandomState(123)
 
@@ -518,20 +510,15 @@ def test_rbm(dataset='mnist.pkl.gz', n_chains=20, n_samples=10, plot_every=1000,
     #################################
     #     Sampling from the RBM     #
     #################################
-    # find out the number of test samples
-    number_of_test_samples = test_set_x.get_value(borrow=True).shape[0]
-
-    # pick random test examples, with which to initialize the persistent chain
-    test_idx = rng.randint(number_of_test_samples - n_chains)
     persistent_vis_chain = theano.shared(
             numpy.asarray(
-                    test_set_x.get_value(borrow=True)[test_idx:test_idx + n_chains],
+                    test_set_x.get_value(borrow=True),
                     dtype=theano.config.floatX
             )
     )
 
     # Print test y
-    print test_set_y.eval()[test_idx:test_idx + n_chains]
+    print test_set_y.eval()
 
     # define one step of Gibbs sampling (mf = mean-field) define a
     # function that does `plot_every` steps before returning the
@@ -568,34 +555,30 @@ def test_rbm(dataset='mnist.pkl.gz', n_chains=20, n_samples=10, plot_every=1000,
             name='sample_fn'
     )
 
-    # create a space to store the image for plotting ( we need to leave
-    # room for the tile_spacing as well)
-    image_data = numpy.zeros(
-            (29 * n_samples + 1, 29 * n_chains - 1),
-            dtype='uint8'
-    )
-    for idx in xrange(n_samples):
+    # find out the number of test samples
+    lst_output = []
+    number_of_test_samples = test_set_x.get_value(borrow=True).shape[0]
+    for idx in xrange(number_of_test_samples):
         # generate `plot_every` intermediate samples that we discard,
         # because successive samples in the chain are too correlated
         vis_mf, vis_sample = sample_fn()
-        print ' ... plotting sample ', idx
-        image_data[29 * idx:29 * idx + 28, :] = tile_raster_images(
-                X=vis_mf,
-                img_shape=(28, 28),
-                tile_shape=(1, n_chains),
-                tile_spacing=(1, 1)
-        )
-
-    # construct image
-    image = Image.fromarray(image_data)
-    image.save(os.path.join(output_folder, 'samples_plot_every' + str(plot_every) + '.png'))
+        lst_output.append(vis_mf)
 
     with open(name_model, 'wb') as f:
         cPickle.dump(rbm, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
+    return lst_output
+
 
 if __name__ == '__main__':
-    # train_rbm(n_hidden=800, training_epochs=3)
+
+    dataset='mnist.pkl.gz'
+    datasets = load_data(dataset)
+
+    train_set_x, train_set_y = datasets[0]
+    test_set_x, test_set_y = datasets[2]
+
+    # train_rbm(dataset=(train_set_x, train_set_y), n_hidden=800, training_epochs=3)
     for i in range(0, 3, 1):
         print 'Starting i=' + str(10**i)
-        test_rbm(n_chains=20, n_samples=10, plot_every=10**i)
+        test_rbm(dataset=(test_set_x, test_set_y), plot_every=10**i)

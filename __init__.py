@@ -6,6 +6,7 @@ import Preprocessing
 import SVM
 import theano
 import DeepLearning.rbm as rbm
+import cPickle
 
 from matplotlib import pyplot as plt
 
@@ -84,9 +85,10 @@ def run_dbn():
     train_set_x = theano.shared(np.asarray(train_set[1], dtype=theano.config.floatX), borrow=True)
     train_set_y = theano.shared(np.asarray(train_set[0], dtype=theano.config.floatX), borrow=True)
 
-    test_set_x = theano.shared(np.asarray(train_set[1], dtype=theano.config.floatX), borrow=True)
-    test_set_y = theano.shared(np.asarray(train_set[0], dtype=theano.config.floatX), borrow=True)
+    test_set_x = theano.shared(np.asarray(test_set[1], dtype=theano.config.floatX), borrow=True)
+    test_set_y = theano.shared(np.asarray(test_set[0], dtype=theano.config.floatX), borrow=True)
 
+    print "Training"
     rbm.train_rbm(
         dataset=(train_set_x, train_set_y),
         learning_rate=0.1,
@@ -94,10 +96,29 @@ def run_dbn():
         batch_size=20,
         output_folder='rbm_plots_location',
         n_hidden=500,
-        n_visible=len(train_set[0]),
+        n_visible=len(test_set_x.get_value(borrow=True)[0]),
         name_model='rbm_location.save')
 
-    rbm.test_rbm(dataset=(test_set_x, test_set_y), plot_every=1)
+    print "Testing"
+    train_set_x = rbm.test_rbm(
+        dataset=(train_set_x, train_set_y),
+        plot_every=10,
+        n_samples=1,
+        output_folder='rbm_plots_location',
+        name_model='rbm_location.save'
+    )
+
+    test_set_x = rbm.test_rbm(
+        dataset=(test_set_x, test_set_y),
+        plot_every=10,
+        n_samples=1,
+        output_folder='rbm_plots_location',
+        name_model='rbm_location.save'
+    )
+
+    dataset = ((train_set_y.get_value(borrow=True), train_set_x),(test_set_y.get_value(borrow=True), test_set_x))
+    with open("x.save", 'wb') as f:
+        cPickle.dump(dataset, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
 def run_svm():
@@ -135,6 +156,9 @@ def run_svm():
 
 
 def run_adaboosting():
+    # with open("x.save", 'rb') as f:
+    #     train_set, test_set = cPickle.load(f)
+
     train_set, test_set = get_sets(.8)
 
     # Create Support Vector Machine
@@ -207,9 +231,9 @@ def run_radial_basis_function_network(hidden, lamda=0):
 
 if __name__ == '__main__':
     # run_svm()
-    # run_adaboosting()
+    run_adaboosting()
     # run_neuronal_perception(eta=.01, theta=.1, iteration=1000, a=50, b=.001, momentum_costant=.08)
-    run_dbn()
+    # run_dbn()
     # run_radial_basis_function_network(hidden=200, lamda=0)
     # print "Listo"
     # [e for e in n

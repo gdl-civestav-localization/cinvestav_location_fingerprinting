@@ -466,14 +466,15 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
         print 'Training epoch %d, cost is ' % epoch, numpy.mean(mean_cost)
 
         # Plot filters after each training epoch
+        print rbm.W.get_value(borrow=True)
         plotting_start = timeit.default_timer()
         # Construct image from the weight matrix
         image = Image.fromarray(
                 tile_raster_images(
                         X=rbm.W.get_value(borrow=True).T,
-                        img_shape=(28, 28),
-                        tile_shape=(10, 10),
-                        tile_spacing=(1, 1)
+                        img_shape=(1, 6),
+                        tile_shape=(20, 20),
+                        tile_spacing=(0, 0)
                 )
         )
 
@@ -487,24 +488,25 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
 
     print ('Training took %f minutes' % (pretraining_time / 60.))
 
-    with open(name_model, 'wb') as f:
+    with open(os.path.join(output_folder, name_model), 'wb') as f:
         cPickle.dump(rbm, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
-def test_rbm(dataset=None, plot_every=1000, name_model='rbm.save'):
+def test_rbm(dataset=None, plot_every=1000, n_samples=10, output_folder='rbm_plots', name_model='rbm.save'):
     """
     Demonstrate how to train and afterwards sample from it using Theano.
 
     :param dataset: Theano shared array train samples and labels
     :param name_model: Name of saved model file
     :param plot_every: Number of steps before returning the sample for plotting
+    :param n_samples: number of samples to plot for each chain
     """
 
     test_set_x, test_set_y = dataset
 
     rng = numpy.random.RandomState(123)
 
-    with open(name_model, 'rb') as f:
+    with open(os.path.join(output_folder, name_model), 'rb') as f:
         rbm = cPickle.load(f)
 
     #################################
@@ -548,6 +550,8 @@ def test_rbm(dataset=None, plot_every=1000, name_model='rbm.save'):
     sample_fn = theano.function(
             [],
             [
+                hid_mfs[-1],
+                hid_samples[-1],
                 vis_mfs[-1],
                 vis_samples[-1]
             ],
@@ -557,14 +561,13 @@ def test_rbm(dataset=None, plot_every=1000, name_model='rbm.save'):
 
     # find out the number of test samples
     lst_output = []
-    number_of_test_samples = test_set_x.get_value(borrow=True).shape[0]
-    for idx in xrange(number_of_test_samples):
+    for idx in xrange(n_samples):
         # generate `plot_every` intermediate samples that we discard,
         # because successive samples in the chain are too correlated
-        vis_mf, vis_sample = sample_fn()
-        lst_output.append(vis_mf)
+        hid_mf, hid_sample, vis_mf, vis_sample = sample_fn()
+        lst_output = hid_mf
 
-    with open(name_model, 'wb') as f:
+    with open(os.path.join(output_folder, name_model), 'wb') as f:
         cPickle.dump(rbm, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
     return lst_output

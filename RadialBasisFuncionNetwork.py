@@ -1,7 +1,8 @@
+import numpy as np
 from scipy import random, zeros, exp, dot
 from scipy.linalg import norm, inv, pinv
-import numpy as np
-import Clustering
+
+from cluster import Clustering
 
 __author__ = 'Gibran'
 
@@ -36,7 +37,7 @@ class RBF:
             targets: column vector of dimension n x output """
 
         # Choose random center vectors from training set
-        self.centers = Clustering.get_clouster_centers(dataset, self.hidden_length)
+        self.centers = Clustering.get_cluster_centers(dataset, self.hidden_length)
         # self.centers = random.permutation(dataset)[:self.hidden_length]
 
         # Calculate data variance

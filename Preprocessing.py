@@ -1,8 +1,9 @@
-import DatasetManager
-from sklearn.preprocessing import Imputer
-from sklearn.decomposition import RandomizedPCA
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.decomposition import RandomizedPCA
+from sklearn.preprocessing import Imputer
+
+from datasets import DatasetManager
 
 __author__ = 'Usuario'
 

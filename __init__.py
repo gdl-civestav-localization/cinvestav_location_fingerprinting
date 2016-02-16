@@ -1,14 +1,15 @@
-import RadialBasisFuncionNetwork
-import numpy as np
-import random
-import DatasetManager
-import Preprocessing
-import SVM
-import theano
-import DeepLearning.rbm as rbm
 import cPickle
+import random
 
+import numpy as np
+import theano
 from matplotlib import pyplot as plt
+
+import DeepLearning.rbm as rbm
+import Preprocessing
+import RadialBasisFuncionNetwork
+import SVM
+from datasets import DatasetManager
 
 __author__ = 'Gibran'
 
@@ -16,7 +17,7 @@ random.seed(23)
 
 
 def get_sets(ratio=.8):
-    result, dataset = DatasetManager.read_dataset()
+    dataset, result = DatasetManager.read_dataset()
 
     # Normalize
     dataset = Preprocessing.get_gaussian_normalization(dataset)

@@ -193,7 +193,7 @@ class DBN(object):
         computes the error on a batch from the testing set
 
         :type datasets: list of pairs of theano.tensor.TensorType
-        :param datasets: It is a list that contain all the datasets;
+        :param datasets: It is a list that contain all the d;
                         the has to contain three pairs, `train`,
                         `valid`, `test` in this order, where each pair
                         is formed of two Theano variables, one for the

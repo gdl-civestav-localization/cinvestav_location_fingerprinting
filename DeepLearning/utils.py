@@ -32,7 +32,7 @@ def tile_raster_images(X, img_shape, tile_shape, tile_spacing=(0, 0),
     Transform an array with one flattened image per row, into an array in
     which images are reshaped and layed out like tiles on a floor.
 
-    This function is useful for visualizing datasets whose rows are images,
+    This function is useful for visualizing d whose rows are images,
     and also columns of matrices for transforming those rows
     (such as the first layer of a neural net).
 

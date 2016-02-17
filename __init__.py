@@ -6,10 +6,10 @@ import theano
 from matplotlib import pyplot as plt
 
 import DeepLearning.rbm as rbm
-import Preprocessing
 import RadialBasisFuncionNetwork
 import SVM
 from datasets import DatasetManager
+from preprocessing import scaling
 
 __author__ = 'Gibran'
 
@@ -20,7 +20,7 @@ def get_sets(ratio=.8):
     dataset, result = DatasetManager.read_dataset()
 
     # Normalize
-    dataset = Preprocessing.get_gaussian_normalization(dataset)
+    dataset = scaling.get_gaussian_normalization(dataset)
     # dataset, s = Preprocessing.get_pca(dataset, num_components=6)
     # dataset = Preprocessing.get_TSNE(dataset, num_components=6)
     result = (result - np.mean(result, 0))

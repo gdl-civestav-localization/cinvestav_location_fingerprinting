@@ -25,6 +25,23 @@ def scale_to_unit_interval(ndar, eps=1e-8):
     return ndar
 
 
+def zero_mean_unit_variance(Data):
+    """ Scales all values in the ndarray ndar to be between 0 and 1 """
+    Mean = numpy.mean(Data, axis=0)
+    Data  -=  Mean
+
+    Std = numpy.std(Data, axis = 0)
+    index = (numpy.abs(Std<10**-5))
+    Std[index] = 1
+    Data /= Std
+    return [Data, Mean, Std]
+
+
+def normalize(Data, Mean, Std):
+    Data -= Mean
+    Data /= Std
+    return Data
+
 def tile_raster_images(X, img_shape, tile_shape, tile_spacing=(0, 0),
                        scale_rows_to_unit_interval=True,
                        output_pixel_vals=True):
@@ -166,6 +183,7 @@ def load_data(dataset):
         new_path = os.path.join(
             os.path.split(__file__)[0],
             "..",
+            "datasets",
             "dataset",
             dataset
         )

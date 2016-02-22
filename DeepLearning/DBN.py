@@ -27,7 +27,7 @@ class DBN(object):
     regression layer on top.
     """
 
-    def __init__(self, numpy_rng, theano_rng=None, n_ins=784,
+    def __init__(self, numpy_rng, theano_rng=None, n_visible=784,
                  hidden_layers_sizes=[500, 500], n_outs=10):
         """This class is made to support a variable number of layers.
 
@@ -39,8 +39,8 @@ class DBN(object):
         :param theano_rng: Theano random generator; if None is given one is
                            generated based on a seed drawn from `rng`
 
-        :type n_ins: int
-        :param n_ins: dimension of the input to the DBN
+        :type n_visible: int
+        :param n_visible: dimension of the input to the DBN
 
         :type hidden_layers_sizes: list of ints
         :param hidden_layers_sizes: intermediate layers size, must contain
@@ -82,7 +82,7 @@ class DBN(object):
             # units of the layer below or the input size if we are on
             # the first layer
             if i == 0:
-                input_size = n_ins
+                input_size = n_visible
             else:
                 input_size = hidden_layers_sizes[i - 1]
 
@@ -210,10 +210,8 @@ class DBN(object):
         (test_set_x, test_set_y) = datasets[2]
 
         # compute number of minibatches for training, validation and testing
-        n_valid_batches = valid_set_x.get_value(borrow=True).shape[0]
-        n_valid_batches /= batch_size
-        n_test_batches = test_set_x.get_value(borrow=True).shape[0]
-        n_test_batches /= batch_size
+        n_valid_batches = valid_set_x.get_value(borrow=True).shape[0] / batch_size
+        n_test_batches = test_set_x.get_value(borrow=True).shape[0] / batch_size
 
         index = T.lscalar('index')  # index to a [mini]batch
 
@@ -240,8 +238,8 @@ class DBN(object):
         )
 
         test_score_i = theano.function(
-            [index],
-            self.errors,
+            inputs=[index],
+            outputs=self.errors,
             givens={
                 self.x: test_set_x[
                     index * batch_size: (index + 1) * batch_size
@@ -253,8 +251,8 @@ class DBN(object):
         )
 
         valid_score_i = theano.function(
-            [index],
-            self.errors,
+            inputs=[index],
+            outputs=self.errors,
             givens={
                 self.x: valid_set_x[
                     index * batch_size: (index + 1) * batch_size
@@ -313,7 +311,7 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=100,
     numpy_rng = numpy.random.RandomState(123)
     print '... building the model'
     # construct the Deep Belief Network
-    dbn = DBN(numpy_rng=numpy_rng, n_ins=28 * 28,
+    dbn = DBN(numpy_rng=numpy_rng, n_visible=28 * 28,
               hidden_layers_sizes=[1000, 1000, 1000],
               n_outs=10)
 

@@ -384,10 +384,12 @@ def predict():
     test_set_x, test_set_y = datasets[2]
     test_set_x = test_set_x.get_value()
 
-    predicted_values = predict_model(test_set_x[:10])
+    predicted_values = predict_model(test_set_x[:100])
     print ("Predicted values for the first 10 examples in test set:")
+    print test_set_y.eval()[:100]
     print predicted_values
 
 
 if __name__ == '__main__':
     sgd_optimization_mnist()
+    predict()

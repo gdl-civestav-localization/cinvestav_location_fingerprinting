@@ -25,7 +25,7 @@ def get_logistic_normalization(data=None):
 
 # Perform a gaussian scaling
 def get_gaussian_normalization(data=np.array([])):
-    data = (data - np.mean(data, 0)) / np.std(data, 0)
+    data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
     return data
 
 

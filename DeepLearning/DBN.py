@@ -135,6 +135,7 @@ class DBN(object):
         # symbolic variable that points to the number of errors made on the
         # minibatch given by self.x and self.y
         self.errors = self.logLayer.errors(self.y)
+        self.result = self.logLayer.y_pred
 
     def pretraining_functions(self, train_set_x, batch_size, k):
         '''Generates a list of functions, for performing one step of
@@ -185,6 +186,26 @@ class DBN(object):
             pretrain_fns.append(fn)
 
         return pretrain_fns
+
+    def predict(self, input):
+        """
+        An example of how to load a trained model and use it
+        to predict labels.
+
+        Parameters
+        ----------
+        input: Matrix of vectors
+        """
+
+
+        # compile a predictor function
+        predict_function = theano.function(
+            inputs=[self.x],
+            outputs=self.result)
+
+        predicted_values = predict_function(input)
+
+        return predicted_values
 
     def build_finetune_functions(self, datasets, batch_size, learning_rate):
         '''Generates a function `train` that implements one step of
@@ -274,8 +295,8 @@ class DBN(object):
         return train_fn, valid_score, test_score
 
 
-def test_DBN(finetune_lr=0.1, pretraining_epochs=100,
-             pretrain_lr=0.01, k=1, training_epochs=1000,
+def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
+             pretrain_lr=0.01, k=1, training_epochs=10,
              dataset='mnist.pkl.gz', batch_size=10):
     """
     Demonstrates how to train and test a Deep Belief Network.
@@ -314,6 +335,7 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=100,
     dbn = DBN(numpy_rng=numpy_rng, n_visible=28 * 28,
               hidden_layers_sizes=[1000, 1000, 1000],
               n_outs=10)
+
 
     # start-snippet-2
     #########################
@@ -434,6 +456,11 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=100,
                           os.path.split(__file__)[1] +
                           ' ran for %.2fm' % ((end_time - start_time)
                                               / 60.))
+
+    predicted_values = dbn.predict(test_set_x.get_value()[:100])
+    print ("Predicted values for the first 10 examples in test set:")
+    print test_set_y.eval()[:100]
+    print predicted_values
 
 
 if __name__ == '__main__':

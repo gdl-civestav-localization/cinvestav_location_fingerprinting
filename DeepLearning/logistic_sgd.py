@@ -34,6 +34,7 @@ References:
 """
 
 import cPickle
+import copy
 import os
 import sys
 import timeit
@@ -45,7 +46,6 @@ import theano.tensor as T
 from utils import load_data
 
 __docformat__ = 'restructedtext en'
-
 
 
 class LogisticRegression(object):
@@ -114,6 +114,26 @@ class LogisticRegression(object):
         # keep track of model input
         self.input = input
 
+    def __getstate__(self):
+        print 'serializing'
+        state = copy.deepcopy(self.__dict__)
+        del state['params']
+        del state['input']
+        del state['p_y_given_x']
+        del state['y_pred']
+        state['W'] = state['W'].get_value()
+        state['b'] = state['b'].get_value()
+        return state
+
+    def __setstate__(self, state):
+        print 'de-serializing'
+        self.W = theano.shared(value=state['W'], name='W', borrow=True)
+        self.b = theano.shared(value=state['b'], name='b', borrow=True)
+        self.input = T.matrix('input')
+        self.p_y_given_x = T.nnet.softmax(T.dot(self.input, self.W) + self.b)
+        self.y_pred = T.argmax(self.p_y_given_x, axis=1)
+        self.params = [self.W, self.b]
+
     def negative_log_likelihood(self, y):
         """Return the mean of the negative log-likelihood of the prediction
         of this model under a given target distribution.
@@ -169,6 +189,25 @@ class LogisticRegression(object):
             return T.mean(T.neq(self.y_pred, y))
         else:
             raise NotImplementedError()
+
+    def predict(self, input):
+        """
+        An example of how to load a trained model and use it
+        to predict labels.
+
+        Parameters
+        ----------
+        input: Matrix of vectors
+        """
+
+        # compile a predictor function
+        predict_function = theano.function(
+            inputs=[self.input],
+            outputs=self.y_pred)
+
+        predicted_values = predict_function(input)
+
+        return predicted_values
 
 
 def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
@@ -373,18 +412,13 @@ def predict():
     # load the saved model
     classifier = cPickle.load(open('best_model.pkl'))
 
-    # compile a predictor function
-    predict_model = theano.function(
-        inputs=[classifier.input],
-        outputs=classifier.y_pred)
-
     # We can test it on some examples from test test
     dataset = 'mnist.pkl.gz'
     datasets = load_data(dataset)
     test_set_x, test_set_y = datasets[2]
     test_set_x = test_set_x.get_value()
 
-    predicted_values = predict_model(test_set_x[:100])
+    predicted_values = classifier.predict(test_set_x[:100])
     print ("Predicted values for the first 10 examples in test set:")
     print test_set_y.eval()[:100]
     print predicted_values

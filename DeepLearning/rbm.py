@@ -4,6 +4,7 @@ Boltzmann Machines (BMs) are a particular form of energy-based model which
 contain hidden variables. Restricted Boltzmann Machines further restrict BMs
 to those without visible-visible and hidden-hidden connections.
 """
+import copy
 import timeit
 
 try:
@@ -121,7 +122,7 @@ class RBM(object):
 
     def __getstate__(self):
         print 'serializing'
-        state = self.__dict__
+        state = copy.deepcopy(self.__dict__)
         del state['params']
         del state['input']
         del state['theano_rng']

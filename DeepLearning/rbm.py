@@ -4,7 +4,6 @@ Boltzmann Machines (BMs) are a particular form of energy-based model which
 contain hidden variables. Restricted Boltzmann Machines further restrict BMs
 to those without visible-visible and hidden-hidden connections.
 """
-import copy
 import timeit
 
 try:
@@ -118,30 +117,6 @@ class RBM(object):
         self.theano_rng = theano_rng
         # **** WARNING: It is not a good idea to put things in this list
         # other than shared variables created in this function.
-        self.params = [self.W, self.h_bias, self.v_bias]
-
-    def __getstate__(self):
-        print 'serializing'
-        state = copy.deepcopy(self.__dict__)
-        del state['params']
-        del state['input']
-        del state['theano_rng']
-        state['W'] = state['W'].get_value()
-        state['h_bias'] = state['h_bias'].get_value()
-        state['v_bias'] = state['v_bias'].get_value()
-        return state
-
-    def __setstate__(self, state):
-        print 'de-serializing'
-        self.W = theano.shared(value=state['W'], name='W', borrow=True)
-        self.h_bias = theano.shared(value=state['h_bias'], name='h_bias', borrow=True)
-        self.n_hidden = state['n_hidden']
-        self.n_visible = state['n_visible']
-        self.v_bias = theano.shared(value=state['v_bias'], name='v_bias', borrow=True)
-        self.input = T.matrix('input')
-
-        numpy_rng = numpy.random.RandomState()
-        self.theano_rng = RandomStreams(numpy_rng.randint(2 ** 30))
         self.params = [self.W, self.h_bias, self.v_bias]
 
     def free_energy(self, v_sample):

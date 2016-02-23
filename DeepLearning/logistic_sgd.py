@@ -34,7 +34,6 @@ References:
 """
 
 import cPickle
-import copy
 import os
 import sys
 import timeit
@@ -113,26 +112,6 @@ class LogisticRegression(object):
 
         # keep track of model input
         self.input = input
-
-    def __getstate__(self):
-        print 'serializing'
-        state = copy.deepcopy(self.__dict__)
-        del state['params']
-        del state['input']
-        del state['p_y_given_x']
-        del state['y_pred']
-        state['W'] = state['W'].get_value()
-        state['b'] = state['b'].get_value()
-        return state
-
-    def __setstate__(self, state):
-        print 'de-serializing'
-        self.W = theano.shared(value=state['W'], name='W', borrow=True)
-        self.b = theano.shared(value=state['b'], name='b', borrow=True)
-        self.input = T.matrix('input')
-        self.p_y_given_x = T.nnet.softmax(T.dot(self.input, self.W) + self.b)
-        self.y_pred = T.argmax(self.p_y_given_x, axis=1)
-        self.params = [self.W, self.b]
 
     def negative_log_likelihood(self, y):
         """Return the mean of the negative log-likelihood of the prediction

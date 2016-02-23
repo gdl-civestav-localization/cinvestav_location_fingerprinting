@@ -34,6 +34,7 @@ References:
 """
 
 import cPickle
+import copy
 import os
 import sys
 import timeit
@@ -113,6 +114,26 @@ class LogisticRegression(object):
         # keep track of model input
         self.input = input
 
+    def __getstate__(self):
+        print 'Serializing Logistic Regresor'
+        state = copy.deepcopy(self.__dict__)
+        del state['params']
+        del state['input']
+        del state['p_y_given_x']
+        del state['y_pred']
+        state['W'] = state['W'].get_value()
+        state['b'] = state['b'].get_value()
+        return state
+
+    def __setstate__(self, state):
+        print 'De-serializing Logistic Regresor'
+        self.W = theano.shared(value=state['W'], name='W', borrow=True)
+        self.b = theano.shared(value=state['b'], name='b', borrow=True)
+        self.input = T.matrix('input')
+        self.p_y_given_x = T.nnet.softmax(T.dot(self.input, self.W) + self.b)
+        self.y_pred = T.argmax(self.p_y_given_x, axis=1)
+        self.params = [self.W, self.b]
+
     def negative_log_likelihood(self, y):
         """Return the mean of the negative log-likelihood of the prediction
         of this model under a given target distribution.
@@ -189,9 +210,11 @@ class LogisticRegression(object):
         return predicted_values
 
 
-def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
+def sgd_optimization_mnist(learning_rate=0.13,
+                           n_epochs=1000,
                            dataset='mnist.pkl.gz',
-                           batch_size=600):
+                           batch_size=600,
+                           name_model='logistic_regresor_mnist.save'):
     """
     Demonstrate stochastic gradient descent optimization of a log-linear
     model
@@ -360,8 +383,8 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
                         )
                     )
                     # save the best model
-                    with open('best_model.pkl', 'w') as f:
-                        cPickle.dump(classifier, f)
+                    with open(os.path.join('trained_models', name_model), 'wb') as f:
+                        cPickle.dump(classifier, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
             if patience <= iter:
                 done_looping = True
@@ -382,17 +405,17 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
                           ' ran for %.1fs' % (end_time - start_time))
 
 
-def predict():
+def predict(dataset='mnist.pkl.gz', name_model='logistic_regresor_mnist.save'):
     """
     An example of how to load a trained model and use it
     to predict labels.
     """
 
     # load the saved model
-    classifier = cPickle.load(open('best_model.pkl'))
+    with open(os.path.join('trained_models', name_model), 'rb') as f:
+        classifier = cPickle.load(f)
 
     # We can test it on some examples from test test
-    dataset = 'mnist.pkl.gz'
     datasets = load_data(dataset)
     test_set_x, test_set_y = datasets[2]
     test_set_x = test_set_x.get_value()
@@ -404,5 +427,12 @@ def predict():
 
 
 if __name__ == '__main__':
-    sgd_optimization_mnist()
-    predict()
+    # sgd_optimization_mnist(
+    #     learning_rate=0.13,
+    #     n_epochs=1000,
+    #     dataset='mnist.pkl.gz',
+    #     batch_size=600,
+    #     name_model='logistic_regresor_mnist.save')
+    predict(
+        dataset='mnist.pkl.gz',
+        name_model='logistic_regresor_mnist.save')

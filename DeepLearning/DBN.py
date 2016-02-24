@@ -1,9 +1,11 @@
 """
 """
+import copy
 import os
 import sys
 import timeit
 
+import cPickle
 import numpy
 
 import theano
@@ -15,7 +17,6 @@ from mlp import HiddenLayer
 from rbm import RBM
 
 
-# start-snippet-1
 class DBN(object):
     """Deep Belief Network
 
@@ -28,7 +29,7 @@ class DBN(object):
     """
 
     def __init__(self, numpy_rng, theano_rng=None, n_visible=784,
-                 hidden_layers_sizes=[500, 500], n_outs=10):
+                 hidden_layers_sizes=[500, 500], n_outs=10, params=None):
         """This class is made to support a variable number of layers.
 
         :type numpy_rng: numpy.random.RandomState
@@ -49,11 +50,15 @@ class DBN(object):
         :type n_outs: int
         :param n_outs: dimension of the output of the network
         """
+        # Params to reconstruct the DBN
+        self.n_visible = n_visible
+        self.hidden_layers_sizes = hidden_layers_sizes
+        self.n_outs = n_outs
 
         self.sigmoid_layers = []
         self.rbm_layers = []
         self.params = []
-        self.n_layers = len(hidden_layers_sizes)
+        self.n_layers = len(self.hidden_layers_sizes)
 
         assert self.n_layers > 0
 
@@ -64,7 +69,7 @@ class DBN(object):
         self.x = T.matrix('x')  # the data is presented as rasterized images
         self.y = T.ivector('y')  # the labels are presented as 1D vector
                                  # of [int] labels
-        # end-snippet-1
+
         # The DBN is an MLP, for which all weights of intermediate
         # layers are shared with a different RBM.  We will first
         # construct the DBN as a deep multilayer perceptron, and when
@@ -82,9 +87,9 @@ class DBN(object):
             # units of the layer below or the input size if we are on
             # the first layer
             if i == 0:
-                input_size = n_visible
+                input_size = self.n_visible
             else:
-                input_size = hidden_layers_sizes[i - 1]
+                input_size = self.hidden_layers_sizes[i - 1]
 
             # the input to this layer is either the activation of the
             # hidden layer below or the input of the DBN if you are on
@@ -97,8 +102,13 @@ class DBN(object):
             sigmoid_layer = HiddenLayer(rng=numpy_rng,
                                         input=layer_input,
                                         n_in=input_size,
-                                        n_out=hidden_layers_sizes[i],
+                                        n_out=self.hidden_layers_sizes[i],
                                         activation=T.nnet.sigmoid)
+
+            # Set params W and b from params
+            if params is not None:
+                sigmoid_layer.W.set_value(params[i*2], borrow=True)
+                sigmoid_layer.b.set_value(params[i*2+1], borrow=True)
 
             # add the layer to our list of layers
             self.sigmoid_layers.append(sigmoid_layer)
@@ -115,7 +125,7 @@ class DBN(object):
                             theano_rng=theano_rng,
                             input=layer_input,
                             n_visible=input_size,
-                            n_hidden=hidden_layers_sizes[i],
+                            n_hidden=self.hidden_layers_sizes[i],
                             W=sigmoid_layer.W,
                             h_bias=sigmoid_layer.b)
             self.rbm_layers.append(rbm_layer)
@@ -123,8 +133,14 @@ class DBN(object):
         # We now need to add a logistic layer on top of the MLP
         self.logLayer = LogisticRegression(
             input=self.sigmoid_layers[-1].output,
-            n_in=hidden_layers_sizes[-1],
-            n_out=n_outs)
+            n_in=self.hidden_layers_sizes[-1],
+            n_out=self.n_outs)
+
+        # Set params W and b from params
+        if params is not None:
+            sigmoid_layer.W.set_value(params[-2], borrow=True)
+            sigmoid_layer.b.set_value(params[-1], borrow=True)
+
         self.params.extend(self.logLayer.params)
 
         # compute the cost for second phase of training, defined as the
@@ -137,21 +153,46 @@ class DBN(object):
         self.errors = self.logLayer.errors(self.y)
         self.result = self.logLayer.y_pred
 
+    def __getstate__(self):
+        print 'Serializing DBN'
+        state = copy.deepcopy(self.__dict__)
+        del state['errors']
+        del state['x']
+        del state['finetune_cost']
+        del state['logLayer']
+        del state['rbm_layers']
+        del state['sigmoid_layers']
+        del state['result']
+        del state['y']
+        for i, val in enumerate(state['params']):
+            state['params'][i] = val.get_value(borrow=True)
+        return state
+
+    def __setstate__(self, state):
+        print 'De-serializing DBN'
+        dbn = DBN(
+            numpy_rng=numpy.random.RandomState(),
+            theano_rng=None,
+            n_visible=state['n_visible'],
+            hidden_layers_sizes=state['hidden_layers_sizes'],
+            n_outs=state['n_outs'],
+            params=state['params'])
+        self.__dict__ = dbn.__dict__
+
     def pretraining_functions(self, train_set_x, batch_size, k):
-        '''Generates a list of functions, for performing one step of
+        """Generates a list of functions, for performing one step of
         gradient descent at a given layer. The function will require
         as input the minibatch index, and to train an RBM you just
         need to iterate, calling the corresponding function on all
         minibatch indexes.
 
         :type train_set_x: theano.tensor.TensorType
-        :param train_set_x: Shared var. that contains all datapoints used
+        :param train_set_x: Shared var. that contains all data-points used
                             for training the RBM
         :type batch_size: int
         :param batch_size: size of a [mini]batch
         :param k: number of Gibbs steps to do in CD-k / PCD-k
-
-        '''
+        """
 
         # index to a [mini]batch
         index = T.lscalar('index')  # index to a minibatch
@@ -197,7 +238,6 @@ class DBN(object):
         input: Matrix of vectors
         """
 
-
         # compile a predictor function
         predict_function = theano.function(
             inputs=[self.x],
@@ -208,8 +248,8 @@ class DBN(object):
         return predicted_values
 
     def build_finetune_functions(self, datasets, batch_size, learning_rate):
-        '''Generates a function `train` that implements one step of
-        finetuning, a function `validate` that computes the error on a
+        """Generates a function `train` that implements one step of
+        fine-tuning, a function `validate` that computes the error on a
         batch from the validation set, and a function `test` that
         computes the error on a batch from the testing set
 
@@ -218,13 +258,12 @@ class DBN(object):
                         the has to contain three pairs, `train`,
                         `valid`, `test` in this order, where each pair
                         is formed of two Theano variables, one for the
-                        datapoints, the other for the labels
+                        data-points, the other for the labels
         :type batch_size: int
         :param batch_size: size of a minibatch
         :type learning_rate: float
-        :param learning_rate: learning rate used during finetune stage
-
-        '''
+        :param learning_rate: learning rate used during fine-tune stage
+        """
 
         (train_set_x, train_set_y) = datasets[0]
         (valid_set_x, valid_set_y) = datasets[1]
@@ -297,7 +336,7 @@ class DBN(object):
 
 def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
              pretrain_lr=0.01, k=1, training_epochs=10,
-             dataset='mnist.pkl.gz', batch_size=10):
+             dataset='mnist.pkl.gz', batch_size=10, name_model='dbn.save'):
     """
     Demonstrates how to train and test a Deep Belief Network.
 
@@ -336,8 +375,6 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
               hidden_layers_sizes=[1000, 1000, 1000],
               n_outs=10)
 
-
-    # start-snippet-2
     #########################
     # PRETRAINING THE MODEL #
     #########################
@@ -361,7 +398,7 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
             print numpy.mean(c)
 
     end_time = timeit.default_timer()
-    # end-snippet-2
+
     print >> sys.stderr, ('The pretraining code for file ' +
                           os.path.split(__file__)[1] +
                           ' ran for %.2fm' % ((end_time - start_time) / 60.))
@@ -457,11 +494,27 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
                           ' ran for %.2fm' % ((end_time - start_time)
                                               / 60.))
 
+    with open(os.path.join('trained_models', name_model), 'wb') as f:
+        cPickle.dump(dbn, f, protocol=cPickle.HIGHEST_PROTOCOL)
+
+    with open(os.path.join('trained_models', name_model), 'rb') as f:
+        classifier = cPickle.load(f)
+
     predicted_values = dbn.predict(test_set_x.get_value()[:100])
+    predicted_values_pickle = classifier.predict(test_set_x.get_value()[:100])
     print ("Predicted values for the first 10 examples in test set:")
     print test_set_y.eval()[:100]
     print predicted_values
+    print predicted_values_pickle
 
 
 if __name__ == '__main__':
-    test_DBN()
+    test_DBN(
+        finetune_lr=0.1,
+        pretraining_epochs=2,
+        pretrain_lr=0.01,
+        k=1,
+        training_epochs=2,
+        dataset='mnist.pkl.gz',
+        batch_size=10,
+        name_model='dbn_mnist.save')

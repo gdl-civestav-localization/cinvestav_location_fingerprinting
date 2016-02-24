@@ -464,7 +464,7 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
 
     print ('Training took %f minutes' % (pretraining_time / 60.))
 
-    with open(os.path.join(output_folder, name_model), 'wb') as f:
+    with open(os.path.join('trained_models', name_model), 'wb') as f:
         cPickle.dump(rbm, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
@@ -480,9 +480,7 @@ def test_rbm(dataset=None, plot_every=1000, n_samples=10, output_folder='rbm_plo
 
     test_set_x, test_set_y = dataset
 
-    rng = numpy.random.RandomState(123)
-
-    with open(os.path.join(output_folder, name_model), 'rb') as f:
+    with open(os.path.join('trained_models', name_model), 'rb') as f:
         rbm = cPickle.load(f)
 
     #################################
@@ -543,7 +541,7 @@ def test_rbm(dataset=None, plot_every=1000, n_samples=10, output_folder='rbm_plo
         hid_mf, hid_sample, vis_mf, vis_sample = sample_fn()
         lst_output = hid_mf
 
-    with open(os.path.join(output_folder, name_model), 'wb') as f:
+    with open(os.path.join('trained_models', name_model), 'wb') as f:
         cPickle.dump(rbm, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
     return lst_output
@@ -557,7 +555,13 @@ if __name__ == '__main__':
     train_set_x, train_set_y = datasets[0]
     test_set_x, test_set_y = datasets[2]
 
-    # train_rbm(dataset=(train_set_x, train_set_y), n_hidden=800, training_epochs=3)
+    train_rbm(dataset=(train_set_x, train_set_y),
+              n_hidden=800,
+              training_epochs=5,
+              name_model='rbm_mnist.save')
     for i in range(0, 3, 1):
         print 'Starting i=' + str(10**i)
-        test_rbm(dataset=(test_set_x, test_set_y), plot_every=10**i)
+        test_rbm(
+            dataset=(test_set_x, test_set_y),
+            plot_every=10**i,
+            name_model='rbm_mnist.save')

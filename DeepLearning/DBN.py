@@ -68,7 +68,7 @@ class DBN(object):
         # allocate symbolic variables for the data
         self.x = T.matrix('x')  # the data is presented as rasterized images
         self.y = T.ivector('y')  # the labels are presented as 1D vector
-                                 # of [int] labels
+        # of [int] labels
 
         # The DBN is an MLP, for which all weights of intermediate
         # layers are shared with a different RBM.  We will first
@@ -99,16 +99,20 @@ class DBN(object):
             else:
                 layer_input = self.sigmoid_layers[-1].output
 
+            # Set params W and b from params
+            W_val = None
+            b_val = None
+            if params is not None:
+                W_val = params[i*2]
+                b_val = params[i*2+1]
+
             sigmoid_layer = HiddenLayer(rng=numpy_rng,
                                         input=layer_input,
                                         n_in=input_size,
                                         n_out=self.hidden_layers_sizes[i],
-                                        activation=T.nnet.sigmoid)
-
-            # Set params W and b from params
-            if params is not None:
-                sigmoid_layer.W.set_value(params[i*2], borrow=True)
-                sigmoid_layer.b.set_value(params[i*2+1], borrow=True)
+                                        activation=T.nnet.sigmoid,
+                                        W=W_val,
+                                        b=b_val)
 
             # add the layer to our list of layers
             self.sigmoid_layers.append(sigmoid_layer)
@@ -131,15 +135,17 @@ class DBN(object):
             self.rbm_layers.append(rbm_layer)
 
         # We now need to add a logistic layer on top of the MLP
+        W_val = None
+        b_val = None
+        if params is not None:
+            W_val = params[-2]
+            b_val = params[-1]
         self.logLayer = LogisticRegression(
             input=self.sigmoid_layers[-1].output,
             n_in=self.hidden_layers_sizes[-1],
-            n_out=self.n_outs)
-
-        # Set params W and b from params
-        if params is not None:
-            sigmoid_layer.W.set_value(params[-2], borrow=True)
-            sigmoid_layer.b.set_value(params[-1], borrow=True)
+            n_out=self.n_outs,
+            W=W_val,
+            b=b_val)
 
         self.params.extend(self.logLayer.params)
 
@@ -264,7 +270,6 @@ class DBN(object):
         :type learning_rate: float
         :param learning_rate: learning rate used during fine-tune stage
         """
-
         (train_set_x, train_set_y) = datasets[0]
         (valid_set_x, valid_set_y) = datasets[1]
         (test_set_x, test_set_y) = datasets[2]
@@ -334,9 +339,9 @@ class DBN(object):
         return train_fn, valid_score, test_score
 
 
-def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
+def train_DBN(finetune_lr=0.1, pretraining_epochs=10,
              pretrain_lr=0.01, k=1, training_epochs=10,
-             dataset='mnist.pkl.gz', batch_size=10, name_model='dbn.save'):
+             datasets=None, batch_size=10, name_model='dbn_mnist.save'):
     """
     Demonstrates how to train and test a Deep Belief Network.
 
@@ -357,12 +362,7 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
     :type batch_size: int
     :param batch_size: the size of a minibatch
     """
-
-    datasets = load_data(dataset)
-
     train_set_x, train_set_y = datasets[0]
-    valid_set_x, valid_set_y = datasets[1]
-    test_set_x, test_set_y = datasets[2]
 
     # compute number of minibatches for training, validation and testing
     n_train_batches = train_set_x.get_value(borrow=True).shape[0] / batch_size
@@ -375,6 +375,7 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
               hidden_layers_sizes=[1000, 1000, 1000],
               n_outs=10)
 
+    # start-snippet-2
     #########################
     # PRETRAINING THE MODEL #
     #########################
@@ -398,7 +399,7 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
             print numpy.mean(c)
 
     end_time = timeit.default_timer()
-
+    # end-snippet-2
     print >> sys.stderr, ('The pretraining code for file ' +
                           os.path.split(__file__)[1] +
                           ' ran for %.2fm' % ((end_time - start_time) / 60.))
@@ -493,28 +494,42 @@ def test_DBN(finetune_lr=0.1, pretraining_epochs=10,
                           os.path.split(__file__)[1] +
                           ' ran for %.2fm' % ((end_time - start_time)
                                               / 60.))
-
     with open(os.path.join('trained_models', name_model), 'wb') as f:
         cPickle.dump(dbn, f, protocol=cPickle.HIGHEST_PROTOCOL)
+
+
+def test_DBN(datasets=None, name_model='dbn_mnist.save'):
+    """
+    Demonstrates how to test a Deep Belief Network.
+    """
+    valid_set_x, valid_set_y = datasets[1]
 
     with open(os.path.join('trained_models', name_model), 'rb') as f:
         classifier = cPickle.load(f)
 
-    predicted_values = dbn.predict(test_set_x.get_value()[:100])
-    predicted_values_pickle = classifier.predict(test_set_x.get_value()[:100])
-    print ("Predicted values for the first 10 examples in test set:")
-    print test_set_y.eval()[:100]
-    print predicted_values
+    predicted_values_pickle = classifier.predict(valid_set_x.get_value())
+    print valid_set_y.eval()
     print predicted_values_pickle
-
+    return predicted_values_pickle
 
 if __name__ == '__main__':
+
+    datasets = load_data('mnist.pkl.gz')
+
+    train_set_x, train_set_y = datasets[0]
+    valid_set_x, valid_set_y = datasets[1]
+    test_set_x, test_set_y = datasets[2]
+
+    # train_DBN(
+    #     finetune_lr=0.1,
+    #     pretraining_epochs=1,
+    #     pretrain_lr=0.01,
+    #     k=1,
+    #     training_epochs=1,
+    #     datasets=datasets,
+    #     batch_size=10,
+    #     name_model='dbn_mnist.save')
+
     test_DBN(
-        finetune_lr=0.1,
-        pretraining_epochs=2,
-        pretrain_lr=0.01,
-        k=1,
-        training_epochs=2,
-        dataset='mnist.pkl.gz',
-        batch_size=10,
+        datasets=datasets,
         name_model='dbn_mnist.save')

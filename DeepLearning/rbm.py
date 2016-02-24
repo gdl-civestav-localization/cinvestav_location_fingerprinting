@@ -487,10 +487,10 @@ def test_rbm(dataset=None, plot_every=1000, n_samples=10, output_folder='rbm_plo
     #     Sampling from the RBM     #
     #################################
     persistent_vis_chain = theano.shared(
-            numpy.asarray(
-                    test_set_x.get_value(borrow=True),
-                    dtype=theano.config.floatX
-            )
+        numpy.asarray(
+            test_set_x.get_value(borrow=True),
+            dtype=theano.config.floatX
+        )
     )
 
     # Print test y

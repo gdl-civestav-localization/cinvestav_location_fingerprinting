@@ -12,6 +12,8 @@ import os
 import theano
 import theano.tensor as T
 import cPickle
+import math
+os.sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def scale_to_unit_interval(ndar, eps=1e-8):
@@ -42,7 +44,17 @@ def normalize(Data, Mean, Std):
     Data /= Std
     return Data
 
-def tile_raster_images(X, img_shape, tile_shape, tile_spacing=(0, 0),
+
+def max_divisor(a):
+    b = int(round(math.sqrt(a)))
+    for i in range(b, 0, -1):
+        res = a % i
+        if res == 0:
+            return i
+    return 1
+
+
+def tile_raster_images(X, n_visible, tile_shape, tile_spacing=(0, 0),
                        scale_rows_to_unit_interval=True,
                        output_pixel_vals=True):
     """
@@ -59,8 +71,8 @@ def tile_raster_images(X, img_shape, tile_shape, tile_spacing=(0, 0),
     be 2-D ndarrays or None;
     :param X: a 2-D array in which every row is a flattened image.
 
-    :type img_shape: tuple; (height, width)
-    :param img_shape: the original shape of each image
+    :type n_visible: Int;
+    :param n_visible: Number of visibles units
 
     :type tile_shape: tuple; (rows, cols)
     :param tile_shape: the number of images to tile (rows, cols)
@@ -77,6 +89,9 @@ def tile_raster_images(X, img_shape, tile_shape, tile_spacing=(0, 0),
     :rtype: a 2-d array with same dtype as X.
 
     """
+
+    comun_divisor = max_divisor(n_visible)
+    img_shape = (comun_divisor, n_visible / comun_divisor)
 
     assert len(img_shape) == 2
     assert len(tile_shape) == 2

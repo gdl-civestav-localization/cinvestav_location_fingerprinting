@@ -4,6 +4,7 @@ Boltzmann Machines (BMs) are a particular form of energy-based model which
 contain hidden variables. Restricted Boltzmann Machines further restrict BMs
 to those without visible-visible and hidden-hidden connections.
 """
+import copy
 import timeit
 
 try:
@@ -115,8 +116,31 @@ class RBM(object):
         self.h_bias = h_bias
         self.v_bias = v_bias
         self.theano_rng = theano_rng
-        # **** WARNING: It is not a good idea to put things in this list
-        # other than shared variables created in this function.
+
+        self.params = [self.W, self.h_bias, self.v_bias]
+
+    def __getstate__(self):
+        print 'Serializing RBM'
+        state = copy.deepcopy(self.__dict__)
+        del state['params']
+        del state['input']
+        del state['theano_rng']
+        state['W'] = state['W'].get_value()
+        state['h_bias'] = state['h_bias'].get_value()
+        state['v_bias'] = state['v_bias'].get_value()
+        return state
+
+    def __setstate__(self, state):
+        print 'De-serializing RBM'
+        self.W = theano.shared(value=state['W'], name='W', borrow=True)
+        self.h_bias = theano.shared(value=state['h_bias'], name='h_bias', borrow=True)
+        self.n_hidden = state['n_hidden']
+        self.n_visible = state['n_visible']
+        self.v_bias = theano.shared(value=state['v_bias'], name='v_bias', borrow=True)
+        self.input = T.matrix('input')
+
+        numpy_rng = numpy.random.RandomState()
+        self.theano_rng = RandomStreams(numpy_rng.randint(2 ** 30))
         self.params = [self.W, self.h_bias, self.v_bias]
 
     def free_energy(self, v_sample):
@@ -377,6 +401,10 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
     :param dataset: Theano shared array train samples and labels
     :param batch_size: size of a batch used to train the RBM
     :param name_model: Name of saved model file
+    :param n_visible: Numbers of visibles units
+
+    Parameters
+    ----------
     """
 
     [train_set_x, train_set_y] = dataset
@@ -389,7 +417,6 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
     x = T.matrix('x')  # the data is presented as rasterized images
 
     rng = numpy.random.RandomState(123)
-
     theano_rng = RandomStreams(rng.randint(2 ** 30))
 
     # initialize storage for the persistent chain (state = hidden
@@ -442,15 +469,14 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
         print 'Training epoch %d, cost is ' % epoch, numpy.mean(mean_cost)
 
         # Plot filters after each training epoch
-        print rbm.W.get_value(borrow=True)
         plotting_start = timeit.default_timer()
         # Construct image from the weight matrix
         image = Image.fromarray(
                 tile_raster_images(
                         X=rbm.W.get_value(borrow=True).T,
-                        img_shape=(1, 6),
+                        n_visible=n_visible,
                         tile_shape=(20, 20),
-                        tile_spacing=(0, 0)
+                        tile_spacing=(1, 1)
                 )
         )
 
@@ -468,7 +494,7 @@ def train_rbm(learning_rate=0.1, training_epochs=15,
         cPickle.dump(rbm, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
-def test_rbm(dataset=None, plot_every=1000, n_samples=10, output_folder='rbm_plots', name_model='rbm.save'):
+def test_rbm(dataset=None, plot_every=1000, n_samples=10, name_model='rbm.save'):
     """
     Demonstrate how to train and afterwards sample from it using Theano.
 
@@ -557,8 +583,11 @@ if __name__ == '__main__':
 
     train_rbm(dataset=(train_set_x, train_set_y),
               n_hidden=800,
-              training_epochs=5,
-              name_model='rbm_mnist.save')
+              n_visible=28 * 28,
+              training_epochs=50,
+              batch_size=20,
+              name_model='rbm_mnist.save',
+              output_folder='rbm_plots')
     for i in range(0, 3, 1):
         print 'Starting i=' + str(10**i)
         test_rbm(

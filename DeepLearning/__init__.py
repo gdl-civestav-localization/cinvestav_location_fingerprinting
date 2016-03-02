@@ -1,6 +1,8 @@
 from theano import function, config, shared, tensor, sandbox
 import numpy
 import time
+from os import sys, path
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 __author__ = 'Gibran Felix'
 

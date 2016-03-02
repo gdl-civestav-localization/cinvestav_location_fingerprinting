@@ -60,8 +60,8 @@ class GRBM_DBN(object):
             self.params.extend(sigmoid_layer.params)
             # Construct an RBM that shared weights with this layer
             if i == 0:
-                rbm_layer = GBRBM(input=layer_input, n_in=input_size, n_hidden=hidden_layers_sizes[i], \
-                W=None, hbias=None, vbias=None, numpy_rng=None, transpose=False, activation=T.nnet.sigmoid,
+                rbm_layer = GBRBM(input=layer_input, n_visible=input_size, n_hidden=hidden_layers_sizes[i],
+                W=None, h_bias=None, v_bias=None, numpy_rng=None, transpose=False, activation=T.nnet.sigmoid,
                 theano_rng=None, name='grbm', W_r=None, dropout=0, dropconnect=0)
             else:
                 rbm_layer = RBM(numpy_rng=numpy_rng,
@@ -70,7 +70,7 @@ class GRBM_DBN(object):
                                 n_visible=input_size,
                                 n_hidden=hidden_layers_sizes[i],
                                 W=sigmoid_layer.W,
-                                hbias=sigmoid_layer.b)
+                                h_bias=sigmoid_layer.b)
             self.rbm_layers.append(rbm_layer)
 
         # We now need to add a logistic layer on top of the MLP
@@ -88,6 +88,7 @@ class GRBM_DBN(object):
         # symbolic variable that points to the number of errors made on the
         # minibatch given by self.x and self.y
         self.errors = self.logLayer.errors(self.y)
+        self.result = self.logLayer.y_pred
 
         #################################################
         # Wudi change the annealing learning rate:
@@ -133,7 +134,6 @@ class GRBM_DBN(object):
         finetuning, a function `validate` that computes the error on a
         batch from the validation set, and a function `test` that
         computes the error on a batch from the testing set
-
         :type datasets: list of pairs of theano.tensor.TensorType
         :param datasets: It is a list that contain all the datasets;
                         the has to contain three pairs, `train`,
@@ -144,12 +144,11 @@ class GRBM_DBN(object):
         :param batch_size: size of a minibatch
         :type learning_rate: float
         :param learning_rate: learning rate used during finetune stage
-
         '''
 
         (train_set_x, train_set_y) = datasets[0]
-        (valid_set_x, valid_set_y) = datasets[1]
-        (test_set_x, test_set_y) = datasets[2]
+        (valid_set_x, valid_set_y) = (train_set_x, train_set_y)
+        (test_set_x, test_set_y) = (train_set_x, train_set_y)
 
         # compute number of minibatches for training, validation and testing
         n_valid_batches = valid_set_x.get_value(borrow=True).shape[0]
@@ -158,7 +157,7 @@ class GRBM_DBN(object):
         n_test_batches /= batch_size
 
         index = T.lscalar('index')  # index to a [mini]batch
-        
+
 
         # compute the gradients with respect to the model parameters
         gparams = T.grad(self.finetune_cost, self.params)
@@ -215,7 +214,7 @@ class GRBM_DBN(object):
             pshape = p.get_value().shape
             pnum = numpy.prod(pshape)
             p.set_value(inplaceupdate(p.get_value(borrow=True), newparams[paramscounter:paramscounter+pnum].reshape(*pshape)), borrow=True)
-            paramscounter += pnum 
+            paramscounter += pnum
 
     def get_params(self):
         return numpy.concatenate([p.get_value().flatten() for p in self.params])
@@ -226,15 +225,32 @@ class GRBM_DBN(object):
     def load(self, filename):
         self.updateparams(numpy.load(filename))
 
+    def predict(self, input):
+        """
+        An example of how to load a trained model and use it
+        to predict labels.
 
-def test_GRBM_DBN(finetune_lr=0.2, pretraining_epochs=1,
-             pretrain_lr=0.01, k=1, training_epochs=10,
+        Parameters
+        ----------
+        input: Matrix of vectors
+        """
+
+        # compile a predictor function
+        predict_function = theano.function(
+            inputs=[self.x],
+            outputs=self.result)
+
+        predicted_values = predict_function(input)
+
+        return predicted_values
+
+
+def test_GRBM_DBN(finetune_lr=0.2, pretraining_epochs=15,
+             pretrain_lr=0.01, k=1, training_epochs=30,
              dataset='mnist.pkl.gz', batch_size=10, annealing_learning_rate=0.999):
     """
     Demonstrates how to train and test a Deep Belief Network.
-
     This is demonstrated on MNIST.
-
     :type learning_rate: float
     :param learning_rate: learning rate used in the finetune stage
     :type pretraining_epochs: int
@@ -251,11 +267,14 @@ def test_GRBM_DBN(finetune_lr=0.2, pretraining_epochs=1,
     :param batch_size: the size of a minibatch
     """
 
-    datasets = load_data_grbm(dataset)
+    from datasets.DatasetManager import read_dataset
+    datasets = read_dataset('dataset_simulation_20.csv', shared=True)
+
 
     train_set_x, train_set_y = datasets[0]
     valid_set_x, valid_set_y = datasets[1]
     test_set_x, test_set_y = datasets[2]
+    n_visibles = train_set_x.get_value().shape[1]
 
     # compute number of minibatches for training, validation and testing
     n_train_batches = train_set_x.get_value(borrow=True).shape[0] / batch_size
@@ -264,9 +283,9 @@ def test_GRBM_DBN(finetune_lr=0.2, pretraining_epochs=1,
     numpy_rng = numpy.random.RandomState(123)
     print '... building the model'
     # construct the Deep Belief Network
-    dbn = GRBM_DBN(numpy_rng=numpy_rng, n_ins=28 * 28,
+    dbn = GRBM_DBN(numpy_rng=numpy_rng, n_ins=n_visibles,
                 hidden_layers_sizes=[1000, 1000, 1000],
-                n_outs=10, finetune_lr=finetune_lr)
+                n_outs=40, finetune_lr=finetune_lr)
 
     #########################
     # PRETRAINING THE MODEL #
@@ -314,7 +333,7 @@ def test_GRBM_DBN(finetune_lr=0.2, pretraining_epochs=1,
                     givens={dbn.x: valid_set_x[index * batch_size:
                                     (index + 1) * batch_size]})
         temp_out = [temp(i) for i in xrange(n_valid_batches)]
-        
+
 
 
 
@@ -324,11 +343,11 @@ def test_GRBM_DBN(finetune_lr=0.2, pretraining_epochs=1,
     for i in xrange(dbn.n_layers):
         start_time_temp = time.clock()
         if i==0:
-            # for GRBM, the The learning rate needs to be about one or 
+            # for GRBM, the The learning rate needs to be about one or
             #two orders of magnitude smaller than when using
-            #binary visible units and some of the failures reported in the 
+            #binary visible units and some of the failures reported in the
             # literature are probably due to using a
-            pretrain_lr_new = pretrain_lr*0.1 
+            pretrain_lr_new = pretrain_lr*0.1
         else:
             pretrain_lr_new = pretrain_lr
         # go through pretraining epochs
@@ -426,12 +445,14 @@ def test_GRBM_DBN(finetune_lr=0.2, pretraining_epochs=1,
                           os.path.split(__file__)[1] +
                           ' ran for %.2fm' % ((end_time - start_time)
                                               / 60.))
+    predicted_values_pickle = dbn.predict(train_set_x.get_value())
+    print train_set_y.eval()
+    print predicted_values_pickle
 
     print dbn.state_learning_rate.get_value()
 
 def load_data_grbm(dataset):
     ''' Loads the dataset
-
     :type dataset: string
     :param dataset: the path to the dataset (here MNIST)
     '''
@@ -440,6 +461,7 @@ def load_data_grbm(dataset):
     # LOAD DATA #
     #############
 
+    # Download the MNIST dataset if it is not present
     data_dir, data_file = os.path.split(dataset)
     if data_dir == "" and not os.path.isfile(dataset):
         # Check if dataset is in the data directory.
@@ -455,9 +477,7 @@ def load_data_grbm(dataset):
 
     if (not os.path.isfile(dataset)) and data_file == 'mnist.pkl.gz':
         import urllib
-        origin = (
-            'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
-        )
+        origin = 'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
         print 'Downloading data from %s' % origin
         urllib.urlretrieve(origin, dataset)
 
@@ -476,7 +496,6 @@ def load_data_grbm(dataset):
 
     def shared_dataset(data_xy, borrow=True):
         """ Function that loads the dataset into shared variables
-
         The reason we store our dataset in shared variables is to allow
         Theano to copy it into the GPU memory (when code is run on GPU).
         Since copying data into the GPU is slow, copying a minibatch everytime
@@ -499,11 +518,15 @@ def load_data_grbm(dataset):
         # lets ous get around this issue
         return shared_x, T.cast(shared_y, 'int32')
 
-    from sklearn import preprocessing
 
     # Wudi made it a small set:
     train_set_feature = train_set[0][0:1000,:]
-    [train_set_feature1, Mean1, Std1]  = preprocessing.scale(train_set_feature)
+
+    from sklearn import preprocessing
+    train_set_feature1  = preprocessing.scale(train_set_feature)
+    Mean1 = train_set_feature1.mean(axis=0)
+    Std1 = train_set_feature1.std(axis=0)
+
     # Wudi added normalized data for GRBM
     #[train_set_feature2, Mean2, Var2] = zero_mean_unit_variance(train_set_feature)
     train_set_new_target = train_set[1][0:1000]
@@ -520,6 +543,9 @@ def load_data_grbm(dataset):
     rval = [(train_set_x, train_set_y), (valid_set_x, valid_set_y),
             (test_set_x, test_set_y)]
     return rval
+
+
+
 
 if __name__ == '__main__':
     test_GRBM_DBN()

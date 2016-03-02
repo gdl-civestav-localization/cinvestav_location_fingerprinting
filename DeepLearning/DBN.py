@@ -12,9 +12,10 @@ import theano
 import theano.tensor as T
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 
-from logistic_sgd import LogisticRegression, load_data
+from logistic_sgd import LogisticRegression
 from mlp import HiddenLayer
 from rbm import RBM
+from utils import load_data
 
 
 class DBN(object):
@@ -103,8 +104,8 @@ class DBN(object):
             W_val = None
             b_val = None
             if params is not None:
-                W_val = params[i*2]
-                b_val = params[i*2+1]
+                W_val = params[i * 2]
+                b_val = params[i * 2 + 1]
 
             sigmoid_layer = HiddenLayer(rng=numpy_rng,
                                         input=layer_input,
@@ -213,7 +214,6 @@ class DBN(object):
 
         pretrain_fns = []
         for rbm in self.rbm_layers:
-
             # get the cost and the updates list
             # using CD-k here (persisent=None) for training each RBM.
             # TODO: change cost function to reconstruction error
@@ -294,11 +294,11 @@ class DBN(object):
             updates=updates,
             givens={
                 self.x: train_set_x[
-                    index * batch_size: (index + 1) * batch_size
-                ],
+                        index * batch_size: (index + 1) * batch_size
+                        ],
                 self.y: train_set_y[
-                    index * batch_size: (index + 1) * batch_size
-                ]
+                        index * batch_size: (index + 1) * batch_size
+                        ]
             }
         )
 
@@ -307,11 +307,11 @@ class DBN(object):
             outputs=self.errors,
             givens={
                 self.x: test_set_x[
-                    index * batch_size: (index + 1) * batch_size
-                ],
+                        index * batch_size: (index + 1) * batch_size
+                        ],
                 self.y: test_set_y[
-                    index * batch_size: (index + 1) * batch_size
-                ]
+                        index * batch_size: (index + 1) * batch_size
+                        ]
             }
         )
 
@@ -320,11 +320,11 @@ class DBN(object):
             outputs=self.errors,
             givens={
                 self.x: valid_set_x[
-                    index * batch_size: (index + 1) * batch_size
-                ],
+                        index * batch_size: (index + 1) * batch_size
+                        ],
                 self.y: valid_set_y[
-                    index * batch_size: (index + 1) * batch_size
-                ]
+                        index * batch_size: (index + 1) * batch_size
+                        ]
             }
         )
 
@@ -340,8 +340,9 @@ class DBN(object):
 
 
 def train_DBN(finetune_lr=0.1, pretraining_epochs=10,
-             pretrain_lr=0.01, k=1, training_epochs=10,
-             datasets=None, batch_size=10, name_model='dbn_mnist.save'):
+              pretrain_lr=0.01, k=1, training_epochs=10,
+              n_visible=28*28, n_outs=10, hidden_layers_sizes=None,
+              datasets=None, batch_size=10, name_model='dbn_mnist.save'):
     """
     Demonstrates how to train and test a Deep Belief Network.
 
@@ -357,10 +358,18 @@ def train_DBN(finetune_lr=0.1, pretraining_epochs=10,
     :param k: number of Gibbs steps in CD/PCD
     :type training_epochs: int
     :param training_epochs: maximal number of iterations ot run the optimizer
-    :type dataset: string
-    :param dataset: path the the pickled dataset
+    :type datasets: Theano shred variable
+    :param datasets: Dataset with train, test and valid sets
     :type batch_size: int
     :param batch_size: the size of a minibatch
+    :type name_model: String
+    :param name_model: Pickle file name
+    :type n_visible: int
+    :param n_visible: the size of input layer
+    :type n_outs: int
+    :param n_outs: the size of output layer
+    :type hidden_layers_sizes: [int, int, int]
+    :param hidden_layers_sizes: the size of hidden layer
     """
     train_set_x, train_set_y = datasets[0]
 
@@ -371,9 +380,9 @@ def train_DBN(finetune_lr=0.1, pretraining_epochs=10,
     numpy_rng = numpy.random.RandomState(123)
     print '... building the model'
     # construct the Deep Belief Network
-    dbn = DBN(numpy_rng=numpy_rng, n_visible=28 * 28,
-              hidden_layers_sizes=[1000, 1000, 1000],
-              n_outs=10)
+    dbn = DBN(numpy_rng=numpy_rng, n_visible=n_visible,
+              hidden_layers_sizes=hidden_layers_sizes,
+              n_outs=n_outs)
 
     # start-snippet-2
     #########################
@@ -418,15 +427,15 @@ def train_DBN(finetune_lr=0.1, pretraining_epochs=10,
     print '... finetuning the model'
     # early-stopping parameters
     patience = 4 * n_train_batches  # look as this many examples regardless
-    patience_increase = 2.    # wait this much longer when a new best is
-                              # found
+    patience_increase = 2.  # wait this much longer when a new best is
+    # found
     improvement_threshold = 0.995  # a relative improvement of this much is
-                                   # considered significant
+    # considered significant
     validation_frequency = min(n_train_batches, patience / 2)
-                                  # go through this many
-                                  # minibatches before checking the network
-                                  # on the validation set; in this case we
-                                  # check every epoch
+    # go through this many
+    # minibatches before checking the network
+    # on the validation set; in this case we
+    # check every epoch
 
     best_validation_loss = numpy.inf
     test_score = 0.
@@ -459,10 +468,10 @@ def train_DBN(finetune_lr=0.1, pretraining_epochs=10,
                 # if we got the best validation score until now
                 if this_validation_loss < best_validation_loss:
 
-                    #improve patience if loss improvement is good enough
+                    # improve patience if loss improvement is good enough
                     if (
-                        this_validation_loss < best_validation_loss *
-                        improvement_threshold
+                                this_validation_loss < best_validation_loss *
+                                improvement_threshold
                     ):
                         patience = max(patience, iter * patience_increase)
 
@@ -478,9 +487,9 @@ def train_DBN(finetune_lr=0.1, pretraining_epochs=10,
                           (epoch, minibatch_index + 1, n_train_batches,
                            test_score * 100.))
 
-            if patience <= iter:
-                done_looping = True
-                break
+            # if patience <= iter:
+            #     done_looping = True
+            #     break
 
     end_time = timeit.default_timer()
     print(
@@ -501,6 +510,15 @@ def train_DBN(finetune_lr=0.1, pretraining_epochs=10,
 def test_DBN(datasets=None, name_model='dbn_mnist.save'):
     """
     Demonstrates how to test a Deep Belief Network.
+
+    :type datasets: Theano shred variable
+    :param datasets: Dataset with train, test and valid sets
+    :type name_model: String
+    :param name_model: Pickle file name
+
+    Returns
+    -------
+    Predictions
     """
     valid_set_x, valid_set_y = datasets[1]
 
@@ -508,28 +526,41 @@ def test_DBN(datasets=None, name_model='dbn_mnist.save'):
         classifier = cPickle.load(f)
 
     predicted_values_pickle = classifier.predict(valid_set_x.get_value())
-    print valid_set_y.eval()
+
+    valid_set_y = valid_set_y.eval()
+    error = 0.0
+    for i in range(len(predicted_values_pickle)):
+        if predicted_values_pickle[i] != valid_set_y[i]:
+            error += 1
+
+    error /= len(predicted_values_pickle)
+    print valid_set_y
     print predicted_values_pickle
-    return predicted_values_pickle
+    print "Error:" + str(error)
+    return predicted_values_pickle, error
+
 
 if __name__ == '__main__':
-
-    datasets = load_data('mnist.pkl.gz')
-
+    from datasets import DatasetManager
+    datasets = DatasetManager.read_dataset('dataset_simulation_20.csv', shared=True)
     train_set_x, train_set_y = datasets[0]
-    valid_set_x, valid_set_y = datasets[1]
     test_set_x, test_set_y = datasets[2]
 
-    # train_DBN(
-    #     finetune_lr=0.1,
-    #     pretraining_epochs=1,
-    #     pretrain_lr=0.01,
-    #     k=1,
-    #     training_epochs=1,
-    #     datasets=datasets,
-    #     batch_size=10,
-    #     name_model='dbn_mnist.save')
+    n_visibles = train_set_x.get_value().shape[1]
 
+    train_DBN(
+        finetune_lr=0.1,
+        pretraining_epochs=100,
+        pretrain_lr=0.01,
+        k=1,
+        training_epochs=1000,
+        datasets=datasets,
+        batch_size=10,
+        n_visible=n_visibles,
+        n_outs=40,
+        hidden_layers_sizes=[1000, 1000, 1000, 1000, 1000],
+        name_model='dbn_binary_RSSI_rango_descarting_outlier.save')
+#
     test_DBN(
         datasets=datasets,
-        name_model='dbn_mnist.save')
+        name_model='dbn_binary_RSSI_rango_descarting_outlier.save')

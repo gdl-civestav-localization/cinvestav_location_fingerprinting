@@ -1,14 +1,7 @@
-import cPickle
 import copy
-import os
-import sys
-import timeit
-
 import numpy
-
 import theano
 import theano.tensor as T
-from utils import load_data
 
 __docformat__ = 'restructedtext en'
 
@@ -36,6 +29,9 @@ class LinearRegression(object):
                       which the labels lie
 
         """
+
+        self.n_in = n_in
+        self.n_out = n_out
         # initialize with 0 the weights W as a matrix of shape (n_in, n_out)
         if W is None:
             W_values = theano.shared(
@@ -67,56 +63,58 @@ class LinearRegression(object):
         # keep track of model input
         self.input = input
 
-        # W is a matrix where column-k represent the separation hyperplane for class-k
-        # x is a matrix where row-j  represents input training sample-j
-        # b is a vector where element-k represent the free parameter of hyperplane-k
-        self.y_pred = T.dot(self.input, self.W) + self.b  # Linear regression.
+        # Output of the model
+        self.output = T.dot(self.input, self.W) + self.b  # Linear regression.
 
         # parameters of the model
         self.params = [self.W, self.b]
-        self.L1 = T.sum(abs(self.W)) + T.sum(abs(self.b))
-        self.L2 = T.sum(self.W ** 2) + T.sum(self.b ** 2)
+        self.L1 = 0
+        self.L2 = 0
+        for p in self.params:
+            self.L1 += T.sum(abs(p))
+            self.L2 += T.sum(p ** 2)
 
     def __getstate__(self):
-        print 'Serializing Logistic Regresor'
+        print 'Serializing ' + self.__class__.__name__
         state = copy.deepcopy(self.__dict__)
         del state['params']
         del state['input']
-        del state['y_pred']
+        del state['output']
+        del state['L1']
+        del state['L2']
         state['W'] = state['W'].get_value()
         state['b'] = state['b'].get_value()
         return state
 
     def __setstate__(self, state):
-        print 'De-serializing Logistic Regresor'
-        self.W = theano.shared(value=state['W'], name='W', borrow=True)
-        self.b = theano.shared(value=state['b'], name='b', borrow=True)
-        self.input = T.matrix('input')
-        self.y_pred = T.dot(self.input, self.W) + self.b
-        self.params = [self.W, self.b]
+        print 'Serializing ' + self.__class__.__name__
+        model = LinearRegression(
+            input=T.matrix('x'),
+            n_in=state['n_in'],
+            n_out=state['n_out'],
+            W=state['W'],
+            b=state['b']
+        )
+        self.__dict__ = model.__dict__
 
-    def errors(self, y):
-        """Return a float representing the number of errors in the minibatch
-        over the total number of examples of the minibatch ; zero one
-        loss over the size of the minibatch
+    def cost(self, y):
+        """Return a cost function of the model
 
         :type y: theano.tensor.TensorType
-        :param y: corresponds to a vector that gives for each example the
-                  correct label
+        :param y: corresponds to a vector that gives for the output
         """
 
         # check if y has same dimension of y_pred
-        if y.ndim != self.y_pred.ndim:
+        if y.ndim != self.output.ndim:
             raise TypeError(
                 'y should have the same shape as self.y_pred',
-                ('y', y.type, 'y_pred', self.y_pred.type)
+                ('y', y.type, 'y_pred', self.output.type)
             )
-        return T.mean((self.y_pred - y) ** 2)
+        return T.mean((self.output - y) ** 2)
 
     def predict(self, input):
         """
-        An example of how to load a trained model and use it
-        to predict labels.
+        Predict function of the model.
 
         Parameters
         ----------
@@ -126,239 +124,73 @@ class LinearRegression(object):
         # compile a predictor function
         predict_function = theano.function(
             inputs=[self.input],
-            outputs=self.y_pred)
+            outputs=self.output)
 
         predicted_values = predict_function(input)
 
         return predicted_values
 
+    def train_functions(self, datasets, batch_size, l1_learning_rate, l2_learning_rate, learning_rate):
+        """
+        Return a train functions
 
-def train(learning_rate=0.13,
-          l1_rate=.001,
-          l2_rate=.001,
-          n_epochs=1000,
-          dataset='mnist.pkl.gz',
-          batch_size=600,
-          name_model='linear_regresor_mnist.save'):
-    """
-    Demonstrate stochastic gradient descent optimization of a log-linear
-    model
+        :type datasets: Theano shred variable
+        :param datasets: Dataset with train, test and valid sets
 
-    This is demonstrated on MNIST.
+        :type batch_size: int
+        :param batch_size: Size of the batch for train
 
-    :param batch_size:
+        type l1_learning_rate: float
+        :param l1_learning_rate: L1-norm's weight when added to the cost
 
-    :type learning_rate: float
-    :param learning_rate: learning rate used (factor for the stochastic
-                          gradient)
+        :type l2_learning_rate: float
+        :param l2_learning_rate: L2-norm's weight when added to the cost
 
-    :type n_epochs: int
-    :param n_epochs: maximal number of epochs to run the optimizer
+        :type learning_rate: float
+        :param learning_rate: learning rate
+        """
+        train_set_x, train_set_y = datasets[0]
+        valid_set_x, valid_set_y = datasets[1]
+        test_set_x, test_set_y = datasets[2]
 
-    :type dataset: string
-    :param dataset: the path of the MNIST dataset file from
-                 http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz
+        y = T.matrix('y')
+        index = T.lscalar()
 
-    """
-    datasets = load_data(dataset)
-
-    train_set_x, train_set_y = datasets[0]
-    valid_set_x, valid_set_y = datasets[1]
-    test_set_x, test_set_y = datasets[2]
-
-    # compute number of minibatches for training, validation and testing
-    n_train_batches = train_set_x.get_value(borrow=True).shape[0] / batch_size
-    n_valid_batches = valid_set_x.get_value(borrow=True).shape[0] / batch_size
-    n_test_batches = test_set_x.get_value(borrow=True).shape[0] / batch_size
-
-    ######################
-    # BUILD ACTUAL MODEL #
-    ######################
-    print '... building the model'
-
-    # allocate symbolic variables for the data
-    index = T.lscalar()  # index to a [mini]batch
-
-    # generate symbolic variables for input (x and y represent a
-    # minibatch)
-    x = T.matrix(name='x', dtype=theano.config.floatX)  # data, presented as rasterized images
-    y = T.matrix(name='y', dtype=theano.config.floatX)  # labels, presented as 1D vector of [int] labels
-
-    # construct the logistic regression class
-    # Each MNIST image has size 28*28
-    regressor = LinearRegression(input=x, n_in=28 * 28, n_out=1)
-
-    # the cost we minimize during training is the root square error
-
-    cost = regressor.errors(y) + l1_rate * regressor.L1 + l2_rate * regressor.L2
-
-    # compiling a Theano function that computes the mistakes that are made by
-    # the model on a minibatch
-    test_model = theano.function(
-        inputs=[index],
-        outputs=regressor.errors(y),
-        givens={
-            x: test_set_x[index * batch_size: (index + 1) * batch_size],
-            y: test_set_y[index * batch_size: (index + 1) * batch_size]
-        }
-    )
-
-    validate_model = theano.function(
-        inputs=[index],
-        outputs=regressor.errors(y),
-        givens={
-            x: valid_set_x[index * batch_size: (index + 1) * batch_size],
-            y: valid_set_y[index * batch_size: (index + 1) * batch_size]
-        }
-    )
-
-    # compute the gradient of cost with respect to theta = (W,b)
-    g_W = T.grad(cost=cost, wrt=regressor.W)
-    g_b = T.grad(cost=cost, wrt=regressor.b)
-
-    # specify how to update the parameters of the model as a list of
-    # (variable, update expression) pairs.
-    updates = [(regressor.W, regressor.W - learning_rate * g_W),
-               (regressor.b, regressor.b - learning_rate * g_b)]
-
-    # compiling a Theano function `train_model` that returns the cost, but in
-    # the same time updates the parameter of the model based on the rules
-    # defined in `updates`
-    train_model = theano.function(
-        inputs=[index],
-        outputs=cost,
-        updates=updates,
-        givens={
-            x: train_set_x[index * batch_size: (index + 1) * batch_size],
-            y: train_set_y[index * batch_size: (index + 1) * batch_size]
-        }
-    )
-
-    ###############
-    # TRAIN MODEL #
-    ###############
-    print '... training the model'
-    # early-stopping parameters
-    patience = 5000  # look as this many examples regardless
-    patience_increase = 2  # wait this much longer when a new best is
-    # found
-    improvement_threshold = 0.995  # a relative improvement of this much is
-    # considered significant
-    validation_frequency = min(n_train_batches, patience / 2)
-    # go through this many
-    # mini batch before checking the network
-    # on the validation set; in this case we
-    # check every epoch
-
-    best_validation_loss = numpy.inf
-    test_score = 0.
-    start_time = timeit.default_timer()
-
-    done_looping = False
-    epoch = 0
-    while (epoch < n_epochs) and (not done_looping):
-        epoch += 1
-        for minibatch_index in xrange(n_train_batches):
-
-            minibatch_avg_cost = train_model(minibatch_index)
-            print minibatch_avg_cost
-            # iteration number
-            iter = (epoch - 1) * n_train_batches + minibatch_index
-
-            if (iter + 1) % validation_frequency == 0:
-                # compute zero-one loss on validation set
-                validation_losses = [validate_model(i)
-                                     for i in xrange(n_valid_batches)]
-                this_validation_loss = numpy.mean(validation_losses)
-                """
-                print(
-                    'epoch %i, minibatch %i/%i, validation error %f %%' %
-                    (
-                        epoch,
-                        minibatch_index + 1,
-                        n_train_batches,
-                        this_validation_loss * 100.
-                    )
-                )"""
-
-                # if we got the best validation score until now
-                if this_validation_loss < best_validation_loss:
-                    # improve patience if loss improvement is good enough
-                    if this_validation_loss < best_validation_loss * \
-                            improvement_threshold:
-                        patience = max(patience, iter * patience_increase)
-
-                    best_validation_loss = this_validation_loss
-                    # test it on the test set
-
-                    test_losses = [test_model(i)
-                                   for i in xrange(n_test_batches)]
-                    test_score = numpy.mean(test_losses)
-                    print(
-                        (
-                            '     epoch %i, minibatch %i/%i, test error of'
-                            ' best model %f %%'
-                        ) %
-                        (
-                            epoch,
-                            minibatch_index + 1,
-                            n_train_batches,
-                            test_score * 100.
-                        )
-                    )
-                    # save the best model
-                    with open(os.path.join('trained_models', name_model), 'wb') as f:
-                        cPickle.dump(regressor, f, protocol=cPickle.HIGHEST_PROTOCOL)
-
-            if patience <= iter:
-                done_looping = True
-                break
-
-    end_time = timeit.default_timer()
-    print(
-        (
-            'Optimization complete with best validation score of %f %%,'
-            'with test performance %f %%'
+        # compiling a Theano function that computes the mistakes that are made by the model on a mini batch
+        test_model = theano.function(
+            inputs=[index],
+            outputs=self.cost(y),
+            givens={
+                self.input: test_set_x[index * batch_size:(index + 1) * batch_size],
+                y: test_set_y[index * batch_size:(index + 1) * batch_size]
+            }
         )
-        % (best_validation_loss * 100., test_score * 100.)
-    )
-    print 'The code run for %d epochs, with %f epochs/sec' % (
-        epoch, 1. * epoch / (end_time - start_time))
-    print >> sys.stderr, ('The code for file ' +
-                          os.path.split(__file__)[1] +
-                          ' ran for %.1fs' % (end_time - start_time))
+        validate_model = theano.function(
+            inputs=[index],
+            outputs=self.cost(y),
+            givens={
+                self.input: valid_set_x[index * batch_size:(index + 1) * batch_size],
+                y: valid_set_y[index * batch_size:(index + 1) * batch_size]
+            }
+        )
 
-
-def predict(dataset='mnist.pkl.gz', name_model='linear_regresor_mnist.save'):
-    """
-    An example of how to load a trained model and use it
-    to predict labels.
-    """
-
-    # load the saved model
-    with open(os.path.join('trained_models', name_model), 'rb') as f:
-        regressor = cPickle.load(f)
-
-    # We can test it on some examples from test test
-    datasets = load_data(dataset)
-    test_set_x, test_set_y = datasets[2]
-    test_set_x = test_set_x.get_value()
-
-    predicted_values = regressor.predict(test_set_x[:100])
-    print ("Predicted values for the first 10 examples in test set:")
-    print test_set_y.eval()[:100]
-    print predicted_values
-
-
-if __name__ == '__main__':
-    train(
-        learning_rate=0.01,
-        l1_rate=.001,
-        l2_rate=.001,
-        n_epochs=1000,
-        dataset='mnist.pkl.gz',
-        batch_size=600,
-        name_model='linear_regresor_mnist.save')
-    predict(
-        dataset='mnist.pkl.gz',
-        name_model='linear_regresor_mnist.save')
+        # the cost we minimize during training is the model cost of plus the regularization terms (L1 and L2)
+        cost = (
+            self.cost(y) + l1_learning_rate * self.L1 + l2_learning_rate * self.L2
+        )
+        # compute the gradient of cost with respect params
+        gparams = [T.grad(cost, param) for param in self.params]
+        updates = [
+            (param, param - learning_rate * gparam)
+            for param, gparam in zip(self.params, gparams)
+            ]
+        train_model = theano.function(
+            inputs=[index],
+            outputs=cost,
+            updates=updates,
+            givens={
+                self.input: train_set_x[index * batch_size: (index + 1) * batch_size],
+                y: train_set_y[index * batch_size: (index + 1) * batch_size]
+            }
+        )
+        return train_model, test_model, validate_model

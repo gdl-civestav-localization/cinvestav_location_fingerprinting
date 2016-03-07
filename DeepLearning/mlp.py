@@ -5,8 +5,7 @@ This tutorial introduces the multilayer perceptron using Theano.
 instead of feeding the input to the logistic regression you insert a
 intermediate layer, called the hidden layer, that has a nonlinear
 activation function (usually tanh or sigmoid) . One can use many such
-hidden layers making the architecture deep. The tutorial will also tackle
-the problem of MNIST digit classification.
+hidden layers making the architecture deep.
 
 .. math::
 
@@ -18,22 +17,18 @@ References:
                  Christopher M. Bishop, section 5
 
 """
-import os
-import sys
-import timeit
+import copy
 import numpy
 import theano
 import theano.tensor as T
 from logistic_sgd import LogisticRegression
-from utils import load_data
+from linear_regression import LinearRegression
 
 __docformat__ = 'restructedtext en'
 
 
-# start-snippet-1
 class HiddenLayer(object):
-    def __init__(self, rng, input, n_in, n_out, W=None, b=None,
-                 activation=T.tanh):
+    def __init__(self, rng, input, n_in, n_out, W=None, b=None, activation_function=T.tanh):
         """
         Typical hidden layer of a MLP: units are fully-connected and have
         sigmoidal activation function. Weight matrix W is of shape (n_in,n_out)
@@ -55,25 +50,16 @@ class HiddenLayer(object):
         :type n_out: int
         :param n_out: number of hidden units
 
-        :type activation: theano.Op or function
-        :param activation: Non linearity to be applied in the hidden
-                           layer
+        :type activation_function: theano.Op or function
+        :param activation_function: Non linearity to be applied in the hidden layer
         """
         self.input = input
-        # end-snippet-1
 
-        # `W` is initialized with `W_values` which is uniformly sampled
-        # from sqrt(-6./(n_in+n_hidden)) and sqrt(6./(n_in+n_hidden))
-        # for tanh activation function
-        # the output of uniform if converted using asarray to dtype
-        # theano.config.floatX so that the code is runnable on GPU
         # Note : optimal initialization of weights is dependent on the
         #        activation function used (among other things).
         #        For example, results presented in [Xavier10] suggest that you
-        #        should use 4 times larger initial weights for sigmoid
-        #        compared to tanh
-        #        We have no info for other function, so we use the same as
-        #        tanh.
+        #        should use 4 times larger initial weights for sigmoid compared to tanh
+        #        We have no info for other function, so we use the same as tanh.
         if W is None:
             W_values = numpy.asarray(
                 rng.uniform(
@@ -83,7 +69,7 @@ class HiddenLayer(object):
                 ),
                 dtype=theano.config.floatX
             )
-            if activation == theano.tensor.nnet.sigmoid:
+            if activation_function == theano.tensor.nnet.sigmoid:
                 W_values *= 4
 
             W = theano.shared(value=W_values, name='W', borrow=True)
@@ -97,308 +83,248 @@ class HiddenLayer(object):
 
         lin_output = T.dot(input, self.W) + self.b
         self.output = (
-            lin_output if activation is None
-            else activation(lin_output)
+            lin_output if activation_function is None
+            else activation_function(lin_output)
         )
         # parameters of the model
         self.params = [self.W, self.b]
 
 
-# start-snippet-2
 class MLP(object):
     """Multi-Layer Perceptron Class
 
-    A multilayer perceptron is a feedforward artificial neural network model
+    A multilayer perceptron is a feedforward artificial deep neural network model
     that has one layer or more of hidden units and nonlinear activations.
     Intermediate layers usually have as activation function tanh or the
     sigmoid function (defined here by a ``HiddenLayer`` class)  while the
-    top layer is a softmax layer (defined here by a ``LogisticRegression``
-    class).
+    top layer is a softmax layer (LogisticRegression) or linear regression layer.
     """
 
-    def __init__(self, rng, input, n_in, n_hidden, n_out):
-        """Initialize the parameters for the multilayer perceptron
+    def __init__(self, rng, input, n_in=784, hidden_layers_sizes=[500, 500], n_out=1, activation_function=T.tanh, params=None):
+        """Initialize the parameters for the deep multilayer perceptron
 
         :type rng: numpy.random.RandomState
         :param rng: a random number generator used to initialize weights
 
         :type input: theano.tensor.TensorType
-        :param input: symbolic variable that describes the input of the
-        architecture (one minibatch)
+        :param input: symbolic variable that describes the input of the architecture
 
         :type n_in: int
-        :param n_in: number of input units, the dimension of the space in
-        which the datapoints lie
+        :param n_in: number of input units
 
-        :type n_hidden: int
-        :param n_hidden: number of hidden units
+        :type hidden_layers_sizes: list of ints
+        :param hidden_layers_sizes: intermediate layers size, must contain at least one value
 
         :type n_out: int
-        :param n_out: number of output units, the dimension of the space in
-        which the labels lie
+        :param n_out: number of output units
 
+        :type activation_function: theano.Op or function
+        :param activation_function: Non linearity to be applied in the hidden layer
+
+        :type params: List of numpy array
+        :param params: free params of the models
         """
 
-        # Since we are dealing with a one hidden layer MLP, this will translate
-        # into a HiddenLayer with a tanh activation function connected to the
-        # LogisticRegression layer; the activation function can be replaced by
-        # sigmoid or any other nonlinear function
-        self.hiddenLayer = HiddenLayer(
-            rng=rng,
-            input=input,
-            n_in=n_in,
-            n_out=n_hidden,
-            activation=T.tanh
-        )
+        self.n_in = n_in
+        self.hidden_layers_sizes = hidden_layers_sizes
+        self.n_out = n_out
+        self.activation_function = activation_function
 
-        # The logistic regression layer gets as input the hidden units
-        # of the hidden layer
-        self.logRegressionLayer = LogisticRegression(
-            input=self.hiddenLayer.output,
-            n_in=n_hidden,
-            n_out=n_out
-        )
-        # end-snippet-2 start-snippet-3
-        # L1 norm ; one regularization option is to enforce L1 norm to
-        # be small
-        self.L1 = (
-            abs(self.hiddenLayer.W).sum()
-            + abs(self.logRegressionLayer.W).sum()
-        )
-
-        # square of L2 norm ; one regularization option is to enforce
-        # square of L2 norm to be small
-        self.L2_sqr = (
-            (self.hiddenLayer.W ** 2).sum() + (self.logRegressionLayer.W ** 2).sum()
-        )
-
-        # negative log likelihood of the MLP is given by the negative
-        # log likelihood of the output of the model, computed in the
-        # logistic regression layer
-        self.negative_log_likelihood = (
-            self.logRegressionLayer.negative_log_likelihood
-        )
-        # same holds for the function computing the number of errors
-        self.errors = self.logRegressionLayer.errors
-
-        # the parameters of the model are the parameters of the two layer it is
-        # made out of
-        self.params = self.hiddenLayer.params + self.logRegressionLayer.params
-        # end-snippet-3
+        self.hidden_layers = []
+        self.params = []
+        self.n_layers = len(self.hidden_layers_sizes)
 
         # keep track of model input
         self.input = input
 
+        assert self.n_layers > 0
 
-def test_mlp(learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001, n_epochs=1000,
-             dataset='mnist.pkl.gz', batch_size=20, n_hidden=500):
-    """
-    Demonstrate stochastic gradient descent optimization for a multilayer
-    perceptron
+        for i in xrange(self.n_layers):
+            if i == 0:
+                input_size = self.n_in
+            else:
+                input_size = self.hidden_layers_sizes[i - 1]
 
-    This is demonstrated on MNIST.
+            if i == 0:
+                layer_input = self.input
+            else:
+                layer_input = self.hidden_layers[-1].output
 
-    :param n_hidden:
-    :param batch_size:
-    :type learning_rate: float
-    :param learning_rate: learning rate used (factor for the stochastic
-    gradient
+            # Set params W and b from params for hidden layer
+            W_val = None
+            b_val = None
+            if params is not None:
+                W_val = params[i * 2]
+                b_val = params[i * 2 + 1]
+            hiddenLayer = HiddenLayer(
+                rng=rng,
+                input=layer_input,
+                n_in=input_size,
+                n_out=self.hidden_layers_sizes[i],
+                activation_function=activation_function,
+                W=W_val,
+                b=b_val
+            )
 
-    :type L1_reg: float
-    :param L1_reg: L1-norm's weight when added to the cost (see
-    regularization)
+            # add the layer to our list of layers
+            self.hidden_layers.append(hiddenLayer)
 
-    :type L2_reg: float
-    :param L2_reg: L2-norm's weight when added to the cost (see
-    regularization)
+            # add parameter of hidden layer to params
+            self.params.extend(hiddenLayer.params)
 
-    :type n_epochs: int
-    :param n_epochs: maximal number of epochs to run the optimizer
+        # We now need to add top of the MLP
+        W_val = None
+        b_val = None
+        if params is not None:
+            W_val = params[-2]
+            b_val = params[-1]
+        self.outputLayer = LinearRegression(
+            input=self.hidden_layers[-1].output,
+            n_in=self.hidden_layers_sizes[-1],
+            n_out=self.n_out,
+            W=W_val,
+            b=b_val
+        )
+        self.params.extend(self.outputLayer.params)
 
-    :type dataset: string
-    :param dataset: the path of the MNIST dataset file from
-                 http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz
+        # Output of the model
+        self.output = self.outputLayer.output
 
+        self.L1 = 0
+        self.L2 = 0
+        for p in self.params:
+            # L1 norm one regularization option is to enforce L1 norm to be small
+            self.L1 += T.sum(abs(p))
+            # square of L2 norm one regularization option is to enforce square of L2 norm to be small
+            self.L2 += T.sum(p ** 2)
 
-   """
-    datasets = load_data(dataset)
+    def __getstate__(self):
+        print 'Serializing ' + self.__class__.__name__
+        state = copy.deepcopy(self.__dict__)
+        del state['output']
+        del state['input']
+        del state['L2']
+        del state['L1']
+        del state['hidden_layers']
+        del state['outputLayer']
+        if state['activation_function'] == theano.tensor.nnet.sigmoid:
+            state['activation_function'] == 'sigmoid'
+        else:
+            state['activation_function'] == 'tanh'
+        for i, val in enumerate(state['params']):
+            state['params'][i] = val.get_value(borrow=True)
+        return state
 
-    train_set_x, train_set_y = datasets[0]
-    valid_set_x, valid_set_y = datasets[1]
-    test_set_x, test_set_y = datasets[2]
+    def __setstate__(self, state):
+        print 'De-serializing ' + self.__class__.__name__
+        if state['activation_function'] == 'sigmoid':
+            activation_function = theano.tensor.nnet.sigmoid
+        else:
+            activation_function = T.tanh
 
-    # compute number of mini batches for training, validation and testing
-    n_train_batches = train_set_x.get_value(borrow=True).shape[0] / batch_size
-    n_valid_batches = valid_set_x.get_value(borrow=True).shape[0] / batch_size
-    n_test_batches = test_set_x.get_value(borrow=True).shape[0] / batch_size
+        mlp = MLP(
+            rng=numpy.random.RandomState(),
+            input=T.matrix('x'),
+            n_in=state['n_in'],
+            hidden_layers_sizes=state['hidden_layers_sizes'],
+            n_out=state['n_out'],
+            params=state['params'],
+            activation_function=activation_function
+        )
+        self.__dict__ = mlp.__dict__
 
-    ######################
-    # BUILD ACTUAL MODEL #
-    ######################
-    print '... building the model'
+    def cost(self, y):
+        """Return a cost function of the model
 
-    # allocate symbolic variables for the data
-    index = T.lscalar()  # index to a [mini]batch
-    x = T.matrix('x')  # the data is presented as rasterized images
-    y = T.ivector('y')  # the labels are presented as 1D vector of
-    # [int] labels
+        :type y: theano.tensor.TensorType
+        :param y: corresponds to a vector that gives for the output
+        """
+        if y.ndim != self.output.ndim:
+            raise TypeError(
+                'y should have the same shape as self.y_pred',
+                ('y', y.type, 'y_pred', self.output.type)
+            )
+        return T.mean((self.output - y) ** 2)
+        # return T.sum((self.output - y) ** 2)
 
-    rng = numpy.random.RandomState(1234)
+    def predict(self, input):
+        """
+        Predict function of the model.
 
-    # construct the MLP class
-    classifier = MLP(
-        rng=rng,
-        input=x,
-        n_in=28 * 28,
-        n_hidden=n_hidden,
-        n_out=10
-    )
+        Parameters
+        ----------
+        input: Matrix of vectors
+        """
 
-    # start-snippet-4
-    # the cost we minimize during training is the negative log likelihood of
-    # the model plus the regularization terms (L1 and L2); cost is expressed
-    # here symbolically
-    cost = (
-        classifier.negative_log_likelihood(y)
-        + L1_reg * classifier.L1
-        + L2_reg * classifier.L2_sqr
-    )
-    # end-snippet-4
+        # compile a predictor function
+        predict_function = theano.function(
+            inputs=[self.input],
+            outputs=self.output)
 
-    # compiling a Theano function that computes the mistakes that are made
-    # by the model on a mini batch
-    test_model = theano.function(
-        inputs=[index],
-        outputs=classifier.errors(y),
-        givens={
-            x: test_set_x[index * batch_size:(index + 1) * batch_size],
-            y: test_set_y[index * batch_size:(index + 1) * batch_size]
-        }
-    )
+        predicted_values = predict_function(input)
+        return predicted_values
 
-    validate_model = theano.function(
-        inputs=[index],
-        outputs=classifier.errors(y),
-        givens={
-            x: valid_set_x[index * batch_size:(index + 1) * batch_size],
-            y: valid_set_y[index * batch_size:(index + 1) * batch_size]
-        }
-    )
+    def train_functions(self, datasets, batch_size, l1_learning_rate, l2_learning_rate, learning_rate):
+        """
+        Return a train functions
 
-    # start-snippet-5
-    # compute the gradient of cost with respect to theta (sorted in params)
-    # the resulting gradients will be stored in a list g-params
-    gparams = [T.grad(cost, param) for param in classifier.params]
+        :type datasets: Theano shred variable
+        :param datasets: Dataset with train, test and valid sets
 
-    # specify how to update the parameters of the model as a list of
-    # (variable, update expression) pairs
+        :type batch_size: int
+        :param batch_size: Size of the batch for train
 
-    # given two lists of the same length, A = [a1, a2, a3, a4] and
-    # B = [b1, b2, b3, b4], zip generates a list C of same size, where each
-    # element is a pair formed from the two lists :
-    #    C = [(a1, b1), (a2, b2), (a3, b3), (a4, b4)]
-    updates = [
-        (param, param - learning_rate * gparam)
-        for param, gparam in zip(classifier.params, gparams)
-        ]
+        type l1_learning_rate: float
+        :param l1_learning_rate: L1-norm's weight when added to the cost
 
-    # compiling a Theano function `train_model` that returns the cost, but
-    # in the same time updates the parameter of the model based on the rules
-    # defined in `updates`
-    train_model = theano.function(
-        inputs=[index],
-        outputs=cost,
-        updates=updates,
-        givens={
-            x: train_set_x[index * batch_size: (index + 1) * batch_size],
-            y: train_set_y[index * batch_size: (index + 1) * batch_size]
-        }
-    )
-    # end-snippet-5
+        :type l2_learning_rate: float
+        :param l2_learning_rate: L2-norm's weight when added to the cost
 
-    ###############
-    # TRAIN MODEL #
-    ###############
-    print '... training'
+        :type learning_rate: float
+        :param learning_rate: learning rate
+        """
+        train_set_x, train_set_y = datasets[0]
+        valid_set_x, valid_set_y = datasets[1]
+        test_set_x, test_set_y = datasets[2]
 
-    # early-stopping parameters
-    patience = 10000  # look as this many examples regardless
-    patience_increase = 2  # wait this much longer when a new best is
-    # found
-    improvement_threshold = 0.995  # a relative improvement of this much is
-    # considered significant
-    validation_frequency = min(n_train_batches, patience / 2)
-    # go through this many
-    # mini batches before checking the network
-    # on the validation set; in this case we
-    # check every epoch
+        y = T.matrix('y')
+        index = T.lscalar()
 
-    best_validation_loss = numpy.inf
-    best_iter = 0
-    test_score = 0.
-    start_time = timeit.default_timer()
+        # compiling a Theano function that computes the mistakes that are made by the model on a mini batch
+        test_model = theano.function(
+            inputs=[index],
+            outputs=self.cost(y),
+            givens={
+                self.input: test_set_x[index * batch_size:(index + 1) * batch_size],
+                y: test_set_y[index * batch_size:(index + 1) * batch_size]
+            }
+        )
+        validate_model = theano.function(
+            inputs=[index],
+            outputs=self.cost(y),
+            givens={
+                self.input: valid_set_x[index * batch_size:(index + 1) * batch_size],
+                y: valid_set_y[index * batch_size:(index + 1) * batch_size]
+            }
+        )
 
-    epoch = 0
-    done_looping = False
-
-    while (epoch < n_epochs) and (not done_looping):
-        epoch += 1
-        for minibatch_index in xrange(n_train_batches):
-
-            minibatch_avg_cost = train_model(minibatch_index)
-            # iteration number
-            iter = (epoch - 1) * n_train_batches + minibatch_index
-
-            if (iter + 1) % validation_frequency == 0:
-                # compute zero-one loss on validation set
-                validation_losses = [validate_model(i) for i
-                                     in xrange(n_valid_batches)]
-                this_validation_loss = numpy.mean(validation_losses)
-
-                print(
-                    'epoch %i, minibatch %i/%i, validation error %f %%' %
-                    (
-                        epoch,
-                        minibatch_index + 1,
-                        n_train_batches,
-                        this_validation_loss * 100.
-                    )
-                )
-
-                # if we got the best validation score until now
-                if this_validation_loss < best_validation_loss:
-                    # improve patience if loss improvement is good enough
-                    if (
-                                this_validation_loss < best_validation_loss *
-                                improvement_threshold
-                    ):
-                        patience = max(patience, iter * patience_increase)
-
-                    best_validation_loss = this_validation_loss
-                    best_iter = iter
-
-                    # test it on the test set
-                    test_losses = [test_model(i) for i
-                                   in xrange(n_test_batches)]
-                    test_score = numpy.mean(test_losses)
-
-                    print(('     epoch %i, minibatch %i/%i, test error of '
-                           'best model %f %%') %
-                          (epoch, minibatch_index + 1, n_train_batches,
-                           test_score * 100.))
-
-            if patience <= iter:
-                done_looping = True
-                break
-
-    end_time = timeit.default_timer()
-    print(('Optimization complete. Best validation score of %f %% '
-           'obtained at iteration %i, with test performance %f %%') %
-          (best_validation_loss * 100., best_iter + 1, test_score * 100.))
-    print >> sys.stderr, ('The code for file ' +
-                          os.path.split(__file__)[1] +
-                          ' ran for %.2fm' % ((end_time - start_time) / 60.))
-
-
-if __name__ == '__main__':
-    test_mlp()
+        # the cost we minimize during training is the model cost of plus the regularization terms (L1 and L2)
+        cost = (
+            self.cost(y) + l1_learning_rate * self.L1 + l2_learning_rate * self.L2
+        )
+        # compute the gradient of cost with respect params
+        gparams = [T.grad(cost, param) for param in self.params]
+        updates = [
+            (param, param - learning_rate * gparam)
+            for param, gparam in zip(self.params, gparams)
+            ]
+        train_model = theano.function(
+            inputs=[index],
+            outputs=self.cost(y),
+            updates=updates,
+            givens={
+                self.input: train_set_x[index * batch_size: (index + 1) * batch_size],
+                y: train_set_y[index * batch_size: (index + 1) * batch_size]
+            }
+        )
+        return train_model, test_model, validate_model

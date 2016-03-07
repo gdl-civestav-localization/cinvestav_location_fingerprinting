@@ -33,32 +33,22 @@ class LinearRegression(object):
         self.n_in = n_in
         self.n_out = n_out
         # initialize with 0 the weights W as a matrix of shape (n_in, n_out)
+        W_values = W
         if W is None:
-            W_values = theano.shared(
-                value=numpy.zeros(
-                    (n_in, n_out),
-                    dtype=theano.config.floatX
-                ),
-                name='W',
-                borrow=True
+            W_values = numpy.zeros(
+                (n_in, n_out),
+                dtype=theano.config.floatX
             )
-            W = W_values
-
-        self.W = W
+        self.W = theano.shared(value=W_values, name='W', borrow=True)
 
         # initialize the biases b as a vector of n_out 0s
+        b_values = b
         if b is None:
-            b_values = theano.shared(
-                value=numpy.zeros(
-                    (n_out,),
-                    dtype=theano.config.floatX
-                ),
-                name='b',
-                borrow=True
+            b_values = numpy.zeros(
+                (n_out,),
+                dtype=theano.config.floatX
             )
-            b = b_values
-
-        self.b = b
+        self.b = theano.shared(value=b_values, name='b', borrow=True)
 
         # keep track of model input
         self.input = input

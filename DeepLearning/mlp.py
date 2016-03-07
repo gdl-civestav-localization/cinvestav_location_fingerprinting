@@ -21,7 +21,7 @@ import copy
 import numpy
 import theano
 import theano.tensor as T
-from logistic_sgd import LogisticRegression
+# from logistic_sgd import LogisticRegression
 from linear_regression import LinearRegression
 
 __docformat__ = 'restructedtext en'
@@ -60,6 +60,7 @@ class HiddenLayer(object):
         #        For example, results presented in [Xavier10] suggest that you
         #        should use 4 times larger initial weights for sigmoid compared to tanh
         #        We have no info for other function, so we use the same as tanh.
+        W_values = W
         if W is None:
             W_values = numpy.asarray(
                 rng.uniform(
@@ -72,11 +73,12 @@ class HiddenLayer(object):
             if activation_function == theano.tensor.nnet.sigmoid:
                 W_values *= 4
 
-            W = theano.shared(value=W_values, name='W', borrow=True)
+        W = theano.shared(value=W_values, name='W', borrow=True)
 
+        b_values = b
         if b is None:
             b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
-            b = theano.shared(value=b_values, name='b', borrow=True)
+        b = theano.shared(value=b_values, name='b', borrow=True)
 
         self.W = W
         self.b = b
@@ -100,7 +102,7 @@ class MLP(object):
     top layer is a softmax layer (LogisticRegression) or linear regression layer.
     """
 
-    def __init__(self, rng, input, n_in=784, hidden_layers_sizes=[500, 500], n_out=1, activation_function=T.tanh, params=None):
+    def __init__(self, rng, input, n_in=784, hidden_layers_sizes=None, n_out=1, activation_function=T.tanh, params=None):
         """Initialize the parameters for the deep multilayer perceptron
 
         :type rng: numpy.random.RandomState
@@ -124,7 +126,6 @@ class MLP(object):
         :type params: List of numpy array
         :param params: free params of the models
         """
-
         self.n_in = n_in
         self.hidden_layers_sizes = hidden_layers_sizes
         self.n_out = n_out

@@ -10,9 +10,9 @@ import numpy
 import gzip
 import os
 import theano
-import theano.tensor as T
 import cPickle
 import math
+
 os.sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -30,10 +30,10 @@ def scale_to_unit_interval(ndar, eps=1e-8):
 def zero_mean_unit_variance(Data):
     """ Scales all values in the ndarray ndar to be between 0 and 1 """
     Mean = numpy.mean(Data, axis=0)
-    Data  -=  Mean
+    Data -= Mean
 
-    Std = numpy.std(Data, axis = 0)
-    index = (numpy.abs(Std<10**-5))
+    Std = numpy.std(Data, axis=0)
+    index = (numpy.abs(Std < 10 ** -5))
     Std[index] = 1
     Data /= Std
     return [Data, Mean, Std]
@@ -239,12 +239,21 @@ def load_data(dataset):
         :param borrow:
         """
         data_x, data_y = data_xy
-        shared_x = theano.shared(numpy.asarray(data_x,
-                                               dtype=theano.config.floatX),
-                                 borrow=borrow)
-        shared_y = theano.shared(numpy.asarray(data_y,
-                                               dtype=theano.config.floatX),
-                                 borrow=borrow)
+        shared_x = theano.shared(
+            numpy.asarray(
+                data_x,
+                dtype=theano.config.floatX
+            ),
+            borrow=borrow
+        )
+
+        shared_y = theano.shared(
+            numpy.asarray(
+                data_y.reshape((len(data_y), 1)),
+                dtype=theano.config.floatX
+            ),
+            borrow=borrow
+        )
         # When storing data on the GPU it has to be stored as floats
         # therefore we will store the labels as ``floatX`` as well
         # (``shared_y`` does exactly that). But during our computations
@@ -252,7 +261,7 @@ def load_data(dataset):
         # floats it doesn't make sense) therefore instead of returning
         # ``shared_y`` we will have to cast it to int. This little hack
         # lets ous get around this issue
-        return shared_x, T.cast(shared_y, 'int32')
+        return shared_x, shared_y  # T.cast(shared_y, 'int32')
 
     test_set_x, test_set_y = shared_dataset(test_set)
     valid_set_x, valid_set_y = shared_dataset(valid_set)

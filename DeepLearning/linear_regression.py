@@ -1,9 +1,8 @@
 import copy
 import numpy
+import sys
 import theano
 import theano.tensor as T
-
-__docformat__ = 'restructedtext en'
 
 
 class LinearRegression(object):
@@ -65,7 +64,8 @@ class LinearRegression(object):
             self.L2 += T.sum(p ** 2)
 
     def __getstate__(self):
-        print 'Serializing ' + self.__class__.__name__
+        if 'pydevd' in sys.modules:
+            print 'Serializing ' + self.__class__.__name__
         state = copy.deepcopy(self.__dict__)
         del state['params']
         del state['input']
@@ -77,7 +77,8 @@ class LinearRegression(object):
         return state
 
     def __setstate__(self, state):
-        print 'Serializing ' + self.__class__.__name__
+        if 'pydevd' in sys.modules:
+            print 'Serializing ' + self.__class__.__name__
         model = LinearRegression(
             input=T.matrix('x'),
             n_in=state['n_in'],
@@ -119,68 +120,3 @@ class LinearRegression(object):
         predicted_values = predict_function(input)
 
         return predicted_values
-
-    def train_functions(self, datasets, batch_size, l1_learning_rate, l2_learning_rate, learning_rate):
-        """
-        Return a train functions
-
-        :type datasets: Theano shred variable
-        :param datasets: Dataset with train, test and valid sets
-
-        :type batch_size: int
-        :param batch_size: Size of the batch for train
-
-        type l1_learning_rate: float
-        :param l1_learning_rate: L1-norm's weight when added to the cost
-
-        :type l2_learning_rate: float
-        :param l2_learning_rate: L2-norm's weight when added to the cost
-
-        :type learning_rate: float
-        :param learning_rate: learning rate
-        """
-        train_set_x, train_set_y = datasets[0]
-        valid_set_x, valid_set_y = datasets[1]
-        test_set_x, test_set_y = datasets[2]
-
-        y = T.matrix('y')
-        index = T.lscalar()
-
-        # compiling a Theano function that computes the mistakes that are made by the model on a mini batch
-        test_model = theano.function(
-            inputs=[index],
-            outputs=self.cost(y),
-            givens={
-                self.input: test_set_x[index * batch_size:(index + 1) * batch_size],
-                y: test_set_y[index * batch_size:(index + 1) * batch_size]
-            }
-        )
-        validate_model = theano.function(
-            inputs=[index],
-            outputs=self.cost(y),
-            givens={
-                self.input: valid_set_x[index * batch_size:(index + 1) * batch_size],
-                y: valid_set_y[index * batch_size:(index + 1) * batch_size]
-            }
-        )
-
-        # the cost we minimize during training is the model cost of plus the regularization terms (L1 and L2)
-        cost = (
-            self.cost(y) + l1_learning_rate * self.L1 + l2_learning_rate * self.L2
-        )
-        # compute the gradient of cost with respect params
-        gparams = [T.grad(cost, param) for param in self.params]
-        updates = [
-            (param, param - learning_rate * gparam)
-            for param, gparam in zip(self.params, gparams)
-            ]
-        train_model = theano.function(
-            inputs=[index],
-            outputs=cost,
-            updates=updates,
-            givens={
-                self.input: train_set_x[index * batch_size: (index + 1) * batch_size],
-                y: train_set_y[index * batch_size: (index + 1) * batch_size]
-            }
-        )
-        return train_model, test_model, validate_model

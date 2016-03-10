@@ -2,16 +2,100 @@ import cPickle
 import os
 import timeit
 
+import theano
 import theano.tensor as T
 import numpy
 
+from DBN import DBN
 from linear_regression import LinearRegression
 from mlp import MLP
 from utils import load_data
 
 
-def train(model=None, learning_rate=0.01, l1_learning_rate=0.001, l2_learning_rate=0.0001, n_epochs=1000,
-          datasets=None, batch_size=20, name_model='mlp_regressor_mnist.save'):
+def train_functions(model, datasets, batch_size, l1_learning_rate, l2_learning_rate, learning_rate):
+        """
+        Generates a function `train` that implements one step of fine-tuning,
+        a function `validate` that computes the error on a batch from the validation set
+        and a function `test` that computes the error on a batch from the testing set
+
+        :type datasets: Theano shred variable
+        :param datasets: Dataset with train, test and valid sets
+
+        :type batch_size: int
+        :param batch_size: Size of the batch for train
+
+        type l1_learning_rate: float
+        :param l1_learning_rate: L1-norm's weight when added to the cost
+
+        :type l2_learning_rate: float
+        :param l2_learning_rate: L2-norm's weight when added to the cost
+
+        :type learning_rate: float
+        :param learning_rate: learning rate
+        """
+        train_set_x, train_set_y = datasets[0]
+        valid_set_x, valid_set_y = datasets[1]
+        test_set_x, test_set_y = datasets[2]
+
+        y = T.matrix('y')
+        index = T.lscalar()
+
+        # compiling a Theano function that computes the mistakes that are made by the model on a mini batch
+        test_model = theano.function(
+            inputs=[index],
+            outputs=model.cost(y),
+            givens={
+                model.input: test_set_x[index * batch_size: (index + 1) * batch_size],
+                y: test_set_y[index * batch_size: (index + 1) * batch_size]
+            }
+        )
+
+        validate_model = theano.function(
+            inputs=[index],
+            outputs=model.cost(y),
+            givens={
+                model.input: valid_set_x[index * batch_size: (index + 1) * batch_size],
+                y: valid_set_y[index * batch_size: (index + 1) * batch_size]
+            }
+        )
+
+        # the cost we minimize during training is the model cost of plus the regularization terms (L1 and L2)
+        cost = (
+            model.cost(y) + l1_learning_rate * model.L1 + l2_learning_rate * model.L2
+        )
+        # compute the gradient of cost with respect params
+        gparams = [T.grad(cost, param) for param in model.params]
+
+        # compute list of fine-tuning updates
+        updates = [
+            (param, param - learning_rate * gparam)
+            for param, gparam in zip(model.params, gparams)
+            ]
+        train_model = theano.function(
+            inputs=[index],
+            outputs=model.cost(y),
+            updates=updates,
+            givens={
+                model.input: train_set_x[index * batch_size: (index + 1) * batch_size],
+                y: train_set_y[index * batch_size: (index + 1) * batch_size]
+            }
+        )
+        return train_model, test_model, validate_model
+
+
+def train(
+        model=None,
+        learning_rate=0.01,
+        l1_learning_rate=0.001,
+        l2_learning_rate=0.0001,
+        n_epochs=1000,
+        datasets=None,
+        batch_size=20,
+        name_model='mlp_regressor_mnist.save',
+        pre_training_epochs=10,
+        pre_train_lr=0.01,
+        k=1
+):
     """
     Train models.
 
@@ -38,18 +122,39 @@ def train(model=None, learning_rate=0.01, l1_learning_rate=0.001, l2_learning_ra
 
     :type name_model: String
     :param name_model: Pickle file name
+
+    :type pre_training_epochs: int
+    :param pre_training_epochs: number of epoch to do pre-training
+
+    :type pre_train_lr: float
+    :param pre_train_lr: learning rate to be used during pre-training
+
+    :type k: int
+    :param k: number of Gibbs steps to do in CD-k / PCD-k
     """
     # compute number of mini batches for training, validation and testing
     n_train_batches = datasets[0][0].get_value(borrow=True).shape[0] / batch_size
     n_valid_batches = datasets[1][0].get_value(borrow=True).shape[0] / batch_size
     n_test_batches = datasets[2][0].get_value(borrow=True).shape[0] / batch_size
 
-    ######################
-    # BUILD ACTUAL MODEL #
-    ######################
-    print '... building the model'
+    #########################
+    # PRETRAINING THE MODEL #
+    #########################
+    if hasattr(model, 'pre_training_functions'):
+        pre_train_model(
+            model=model,
+            datasets=datasets,
+            batch_size=batch_size,
+            pre_training_epochs=pre_training_epochs,
+            pre_train_lr=pre_train_lr,
+            k=k
+        )
 
-    train_model, test_model, validate_model = model.train_functions(
+    ###############
+    # TRAIN MODEL #
+    ###############
+    train_model, test_model, validate_model = train_functions(
+        model=model,
         datasets=datasets,
         batch_size=batch_size,
         l1_learning_rate=l1_learning_rate,
@@ -57,9 +162,6 @@ def train(model=None, learning_rate=0.01, l1_learning_rate=0.001, l2_learning_ra
         learning_rate=learning_rate
     )
 
-    ###############
-    # TRAIN MODEL #
-    ###############
     print '... training'
 
     # Early-stopping parameters
@@ -78,8 +180,9 @@ def train(model=None, learning_rate=0.01, l1_learning_rate=0.001, l2_learning_ra
     while (epoch < n_epochs) and (not done_looping):
         for minibatch_index in xrange(n_train_batches):
 
-            minibatch_avg_cost = train_model(minibatch_index)
-            # print minibatch_avg_cost
+            mini_batch_avg_cost = train_model(minibatch_index)
+            # print mini_batch_avg_cost
+
             # iteration number
             iter = epoch * n_train_batches + minibatch_index
 
@@ -138,6 +241,62 @@ def train(model=None, learning_rate=0.01, l1_learning_rate=0.001, l2_learning_ra
     )
 
 
+def pre_train_model(model, datasets=None, batch_size=20, pre_training_epochs=10, pre_train_lr=0.01, k=1):
+    """
+    Train models.
+
+    :type model: Machine learning model
+    :param model: Machine learning model
+
+    :type datasets: Theano shred variable
+    :param datasets: Dataset with train, test and valid sets
+
+    :type batch_size: int
+    :param batch_size: Size of the batch for train
+
+    :type pre_training_epochs: int
+    :param pre_training_epochs: number of epoch to do pre-training
+
+    :type pre_train_lr: float
+    :param pre_train_lr: learning rate to be used during pre-training
+
+    :type k: int
+    :param k: number of Gibbs steps to do in CD-k / PCD-k
+    """
+
+    print '... getting the pre-training functions'
+    n_train_batches = datasets[0][0].get_value(borrow=True).shape[0] / batch_size
+
+    pre_training_fns = model.pre_training_functions(
+        datasets=datasets,
+        batch_size=batch_size,
+        k=k
+    )
+
+    print '... pre-training the model'
+    start_time = timeit.default_timer()
+    # Pre-train layer-wise
+    for i in xrange(model.n_layers):
+        for epoch in xrange(pre_training_epochs):
+            c = []
+            for batch_index in xrange(n_train_batches):
+                c.append(pre_training_fns[i](
+                    index=batch_index,
+                    lr=pre_train_lr
+                ))
+            print 'Pre-training layer {}, epoch {}, cost {}'.format(
+                i,
+                epoch,
+                numpy.mean(c)
+            )
+
+    end_time = timeit.default_timer()
+    print 'The pre-training code for file {} ran for {}m'.format(
+        os.path.split(__file__)[1],
+        (end_time - start_time) / 60.
+    )
+
+
 def predict(datasets=None, name_model='mlp_regressor_mnist.save'):
     """
     Demonstrates how to test the model
@@ -189,7 +348,7 @@ def get_metrics(test_set_y, predicted_values):
         print '66%:', values[int(len(values) * .66)]
         print '50%:', values[int(len(values) * .50)]
         print '----------------------------------------'
-        #print values
+        # print values
 
     print_metrics(euclidian_error)
     print_metrics(abs_error)
@@ -225,7 +384,24 @@ if __name__ == '__main__':
         activation_function=T.tanh
     )
 
-    model = mlp_model
+    dbn_model = DBN(
+        numpy_rng=rng,
+        n_visible=n_in,
+        theano_rng=None,
+        hidden_layers_sizes=[1000, 1000, 500, 100, 10],
+        n_outs=n_out
+    )
+
+    gbrbm_dbn_model = DBN(
+        numpy_rng=rng,
+        n_visible=n_in,
+        theano_rng=None,
+        hidden_layers_sizes=[1000, 1000, 500, 100, 10],
+        n_outs=n_out,
+        gaussian_visible=True
+    )
+
+    model = linear_regressor_model
 
     train(
         model=model,
@@ -235,7 +411,10 @@ if __name__ == '__main__':
         n_epochs=10000,
         batch_size=600,
         datasets=datasets,
-        name_model=model.__class__.__name__ + '_regressor_RSSI20.save'
+        name_model=model.__class__.__name__ + '_regressor_RSSI20.save',
+        pre_training_epochs=10,
+        pre_train_lr=0.001,
+        k=1
     )
 
     # load the saved model

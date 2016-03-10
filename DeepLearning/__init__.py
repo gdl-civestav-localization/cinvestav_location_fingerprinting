@@ -2,6 +2,7 @@ import cPickle
 import os
 import timeit
 
+import sys
 import theano
 import theano.tensor as T
 import numpy
@@ -12,7 +13,8 @@ from mlp import MLP
 from utils import load_data
 
 
-def train_functions(model, datasets, batch_size, l1_learning_rate, l2_learning_rate, learning_rate):
+def train_functions(model, datasets, batch_size, learning_rate, annealing_learning_rate,
+                    l1_learning_rate, l2_learning_rate):
         """
         Generates a function `train` that implements one step of fine-tuning,
         a function `validate` that computes the error on a batch from the validation set
@@ -24,14 +26,17 @@ def train_functions(model, datasets, batch_size, l1_learning_rate, l2_learning_r
         :type batch_size: int
         :param batch_size: Size of the batch for train
 
+        :type learning_rate: float
+        :param learning_rate: learning rate
+
+        :type annealing_learning_rate: float
+        :param annealing_learning_rate: decreasing rate of learning rate
+
         type l1_learning_rate: float
         :param l1_learning_rate: L1-norm's weight when added to the cost
 
         :type l2_learning_rate: float
         :param l2_learning_rate: L2-norm's weight when added to the cost
-
-        :type learning_rate: float
-        :param learning_rate: learning rate
         """
         train_set_x, train_set_y = datasets[0]
         valid_set_x, valid_set_y = datasets[1]
@@ -63,14 +68,27 @@ def train_functions(model, datasets, batch_size, l1_learning_rate, l2_learning_r
         cost = (
             model.cost(y) + l1_learning_rate * model.L1 + l2_learning_rate * model.L2
         )
+
         # compute the gradient of cost with respect params
         gparams = [T.grad(cost, param) for param in model.params]
 
+
+        #################################################
+        # Wudi change the annealing learning rate:
+        #################################################
+        updates = []
+        state_learning_rate = theano.shared(
+            numpy.asarray(
+                learning_rate,
+                dtype=theano.config.floatX
+            ),
+            borrow=True)
+        updates.append((state_learning_rate, annealing_learning_rate * state_learning_rate))
+
         # compute list of fine-tuning updates
-        updates = [
-            (param, param - learning_rate * gparam)
-            for param, gparam in zip(model.params, gparams)
-            ]
+        for param, gparam in zip(model.params, gparams):
+            updates.append((param, param - state_learning_rate * gparam))
+
         train_model = theano.function(
             inputs=[index],
             outputs=model.cost(y),
@@ -83,9 +101,28 @@ def train_functions(model, datasets, batch_size, l1_learning_rate, l2_learning_r
         return train_model, test_model, validate_model
 
 
+def cost(model, y):
+        """Return a cost function of the model
+
+        :type model: Machine learning model
+        :param model: Machine learning model
+
+        :type y: theano.tensor.TensorType
+        :param y: corresponds to a vector that gives for the output
+        """
+        if y.ndim != model.output.ndim:
+            raise TypeError(
+                'y should have the same shape as self.y_pred',
+                ('y', y.type, 'y_pred', model.output.type)
+            )
+        return T.mean((model.output - y) ** 2)
+        # return T.sum((self.output - y) ** 2)
+
+
 def train(
         model=None,
         learning_rate=0.01,
+        annealing_learning_rate=.999,
         l1_learning_rate=0.001,
         l2_learning_rate=0.0001,
         n_epochs=1000,
@@ -104,6 +141,9 @@ def train(
 
     :type learning_rate: float
     :param learning_rate: learning rate
+
+    :type annealing_learning_rate: float
+    :param annealing_learning_rate: decreasing rate of learning rate
 
     type l1_learning_rate: float
     :param l1_learning_rate: L1-norm's weight when added to the cost
@@ -157,9 +197,10 @@ def train(
         model=model,
         datasets=datasets,
         batch_size=batch_size,
+        learning_rate=learning_rate,
+        annealing_learning_rate=annealing_learning_rate,
         l1_learning_rate=l1_learning_rate,
-        l2_learning_rate=l2_learning_rate,
-        learning_rate=learning_rate
+        l2_learning_rate=l2_learning_rate
     )
 
     print '... training'
@@ -321,9 +362,10 @@ def predict(datasets=None, name_model='mlp_regressor_mnist.save'):
 
     predicted_values = model.predict(test_set_x)
     desired_values = test_set_y.get_value()
-    print "Predicted values test set:"
-    for i in range(len(desired_values)):
-        print numpy.array(desired_values[i]), ' : ', predicted_values[i]
+    if 'pydevd' in sys.modules:
+        print "Predicted values test set:"
+        for i in range(len(desired_values)):
+            print numpy.array(desired_values[i]), ' : ', predicted_values[i]
     return predicted_values
 
 
@@ -367,14 +409,14 @@ if __name__ == '__main__':
     n_out = train_set_y.get_value().shape[1]
 
     x = T.matrix('x')
+    rng = numpy.random.RandomState(1234)
+
     linear_regressor_model = LinearRegression(
         input=x,
         n_in=n_in,
         n_out=n_out
     )
 
-    # construct the MLP model
-    rng = numpy.random.RandomState(1234)
     mlp_model = MLP(
         rng=rng,
         input=x,
@@ -401,11 +443,12 @@ if __name__ == '__main__':
         gaussian_visible=True
     )
 
-    model = linear_regressor_model
+    model = mlp_model
 
     train(
         model=model,
-        learning_rate=0.001,
+        learning_rate=0.01,
+        annealing_learning_rate=1,
         l1_learning_rate=0.001,
         l2_learning_rate=0.0001,
         n_epochs=10000,

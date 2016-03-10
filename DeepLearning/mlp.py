@@ -19,6 +19,7 @@ References:
 """
 import copy
 import numpy
+import sys
 import theano
 import theano.tensor as T
 # from logistic_sgd import LogisticRegression
@@ -200,7 +201,8 @@ class MLP(object):
             self.L2 += T.sum(p ** 2)
 
     def __getstate__(self):
-        print 'Serializing ' + self.__class__.__name__
+        if 'pydevd' in sys.modules:
+            print 'Serializing ' + self.__class__.__name__
         state = copy.deepcopy(self.__dict__)
         del state['output']
         del state['input']
@@ -217,7 +219,8 @@ class MLP(object):
         return state
 
     def __setstate__(self, state):
-        print 'De-serializing ' + self.__class__.__name__
+        if 'pydevd' in sys.modules:
+            print 'De-serializing ' + self.__class__.__name__
         if state['activation_function'] == 'sigmoid':
             activation_function = theano.tensor.nnet.sigmoid
         else:

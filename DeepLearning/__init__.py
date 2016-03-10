@@ -359,7 +359,7 @@ if __name__ == '__main__':
     # datasets = load_data('mnist.pkl.gz')
 
     from datasets import DatasetManager
-    datasets = DatasetManager.read_dataset('dataset_simulation_20.csv', shared=True)
+    datasets = DatasetManager.read_dataset('dataset_simulation_20.csv', shared=True, seed=20)
     train_set_x, train_set_y = datasets[0]
 
     n_in = train_set_x.get_value().shape[1]

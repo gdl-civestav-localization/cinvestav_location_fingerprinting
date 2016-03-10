@@ -9,7 +9,7 @@ import theano.tensor as T
 __author__ = 'Gibran Felix'
 
 
-def read_dataset(dataset_name="dataset_simulation_20.csv", shared=False):
+def read_dataset(dataset_name="dataset_simulation_20.csv", shared=False, seed=None):
     print '... loading data'
     dataset_name = os.path.join(os.path.dirname(__file__), "dataset", dataset_name)
 
@@ -66,10 +66,12 @@ def read_dataset(dataset_name="dataset_simulation_20.csv", shared=False):
     # print Mean1, Std1
 
     return get_sets(dataset=dataset, result=result.values, train_ratio=.6,
-                    test_ratio=.2, valid_ratio=.2, shared=shared)
+                    test_ratio=.2, valid_ratio=.2, shared=shared, seed=seed)
 
 
-def get_sets(dataset, result, train_ratio=.6, test_ratio=.2, valid_ratio=.2, shared=False):
+def get_sets(dataset, result, train_ratio=.6, test_ratio=.2, valid_ratio=.2, shared=False, seed=None):
+    if seed is not None:
+        random.seed(seed)
     # Shuffle data
     zip_dataset = zip(dataset, result)
     random.shuffle(zip_dataset)

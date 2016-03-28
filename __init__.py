@@ -135,7 +135,7 @@ def run_svm():
 
     # Test SVM
     x = test_set[1]
-    y =  test_set[0]
+    y = test_set[0]
     results, error = svm.test(x, y)
 
     print "Error: " + str(error)

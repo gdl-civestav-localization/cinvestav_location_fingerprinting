@@ -55,6 +55,7 @@ class DBN(object):
         self.n_visible = n_visible
         self.hidden_layers_sizes = hidden_layers_sizes
         self.n_outs = n_outs
+        self.gaussian_visible = gaussian_visible
 
         self.sigmoid_layers = []
         self.rbm_layers = []
@@ -109,7 +110,7 @@ class DBN(object):
 
             # Construct an RBM that shared weights with this layer
             if i == 0 and gaussian_visible:
-                self.__class__.__name__ = "GBRBM-DBN"
+                # self.__class__.__name__ = "GBRBM-DBN"
                 rbm_layer = GBRBM(
                     numpy_rng=numpy_rng,
                     theano_rng=theano_rng,
@@ -181,7 +182,9 @@ class DBN(object):
             n_visible=state['n_visible'],
             hidden_layers_sizes=state['hidden_layers_sizes'],
             n_outs=state['n_outs'],
-            params=state['params'])
+            params=state['params'],
+            gaussian_visible=state["gaussian_visible"]
+        )
         self.__dict__ = dbn.__dict__
 
     def cost(self, y):

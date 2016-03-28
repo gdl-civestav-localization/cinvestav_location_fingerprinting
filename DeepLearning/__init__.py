@@ -12,6 +12,8 @@ from linear_regression import LinearRegression
 from mlp import MLP
 from utils import load_data
 
+from matplotlib import pyplot as plt
+
 
 def train_functions(model, datasets, batch_size, learning_rate, annealing_learning_rate,
                     l1_learning_rate, l2_learning_rate):
@@ -218,11 +220,15 @@ def train(
     test_score = 0.
     start_time = timeit.default_timer()
 
+    lst_cost_train = []
+    lst_cost_test = []
+    lst_cost_valid = []
     while (epoch < n_epochs) and (not done_looping):
         for minibatch_index in xrange(n_train_batches):
 
             mini_batch_avg_cost = train_model(minibatch_index)
             # print mini_batch_avg_cost
+            lst_cost_train.append(mini_batch_avg_cost)
 
             # iteration number
             iter = epoch * n_train_batches + minibatch_index
@@ -231,6 +237,8 @@ def train(
                 # compute zero-one loss on validation set
                 validation_losses = [validate_model(i) for i in xrange(n_valid_batches)]
                 validation_losses = numpy.mean(validation_losses)
+
+                lst_cost_valid.append(validation_losses)
 
                 print 'epoch {}, minibatch {}/{}, validation error {}.'.format(
                     epoch + 1,
@@ -258,6 +266,8 @@ def train(
                     test_score = [test_model(i) for i in xrange(n_test_batches)]
                     test_score = numpy.mean(test_score)
 
+                    lst_cost_test.append(test_score)
+
                     print '  -epoch {}, minibatch {}/{}, test error of best model {}.'.format(
                         epoch + 1,
                         minibatch_index + 1,
@@ -280,6 +290,8 @@ def train(
         model.__class__.__name__,
         (end_time - start_time) / 60.
     )
+
+    return lst_cost_test, lst_cost_valid, lst_cost_train
 
 
 def pre_train_model(model, datasets=None, batch_size=20, pre_training_epochs=10, pre_train_lr=0.01, k=1):
@@ -369,7 +381,7 @@ def predict(datasets=None, name_model='mlp_regressor_mnist.save'):
     return predicted_values
 
 
-def get_metrics(test_set_y, predicted_values):
+def get_metrics(test_set_y, predicted_values, model_name):
     euclidian_error = numpy.array([numpy.linalg.norm(y-d) for d, y in zip(test_set_y, predicted_values)])
     abs_error = numpy.array([numpy.sum(abs(y-d))for d, y in zip(test_set_y, predicted_values)])
     ecm_error = numpy.array([numpy.sum((y-d) ** 2) / len(d) for d, y in zip(test_set_y, predicted_values)])
@@ -380,6 +392,8 @@ def get_metrics(test_set_y, predicted_values):
         avg_value = values.mean()
         std_value = values.std()
         values.sort()
+        print model_name
+        print '----------------------------------------'
         print 'Min:', min_value
         print 'Max:', max_value
         print 'Mean:', avg_value
@@ -397,6 +411,54 @@ def get_metrics(test_set_y, predicted_values):
     print_metrics(ecm_error)
 
 
+def run_experiments(models):
+    for model, name in models:
+        cpickle_name = name + '_regressor_RSSI20.save'
+        lst_cost_test, lst_cost_valid, lst_cost_train = train(
+            model=model,
+            learning_rate=0.01,
+            annealing_learning_rate=1,
+            l1_learning_rate=0.001,
+            l2_learning_rate=0.0001,
+            n_epochs=10,
+            batch_size=600,
+            datasets=datasets,
+            name_model=cpickle_name,
+            pre_training_epochs=10,
+            pre_train_lr=0.001,
+            k=1
+        )
+
+        print_loss(lst_cost_train, name + ' train loss')
+        print_loss(lst_cost_valid, name + ' valid loss')
+        print_loss(lst_cost_test, name + ' test loss')
+        plt.show()
+
+        # load the saved model
+        # with open(os.path.join('trained_models', cpickle_name), 'rb') as f:
+        # model = cPickle.load(f)
+
+        predicted_values = predict(
+            datasets=datasets,
+            name_model=cpickle_name
+        )
+
+        get_metrics(
+            test_set_y=datasets[2][1].get_value(),
+            predicted_values=predicted_values,
+            model_name=name
+        )
+
+
+def print_loss(lst_cost, tittle):
+    # Plot desired output
+    plt.figure(tittle)
+    # plt.xlim(-20, 20)
+    # plt.ylim(-20, 20)
+    plt.grid(True)
+    plt.plot(lst_cost, label='sfds', linewidth=2)
+
+
 if __name__ == '__main__':
     # datasets = load_data('mnist.pkl.gz')
 
@@ -405,7 +467,6 @@ if __name__ == '__main__':
     train_set_x, train_set_y = datasets[0]
 
     n_in = train_set_x.get_value().shape[1]
-    print train_set_y.get_value().shape
     n_out = train_set_y.get_value().shape[1]
 
     x = T.matrix('x')
@@ -443,33 +504,10 @@ if __name__ == '__main__':
         gaussian_visible=True
     )
 
-    model = mlp_model
-
-    train(
-        model=model,
-        learning_rate=0.01,
-        annealing_learning_rate=1,
-        l1_learning_rate=0.001,
-        l2_learning_rate=0.0001,
-        n_epochs=10000,
-        batch_size=600,
-        datasets=datasets,
-        name_model=model.__class__.__name__ + '_regressor_RSSI20.save',
-        pre_training_epochs=10,
-        pre_train_lr=0.001,
-        k=1
-    )
-
-    # load the saved model
-    # with open(os.path.join('trained_models', model.__class__.__name__ + '_regressor_mnist.save'), 'rb') as f:
-    #     model = cPickle.load(f)
-
-    predicted_values = predict(
-        datasets=datasets,
-        name_model=model.__class__.__name__ + '_regressor_RSSI20.save'
-    )
-
-    get_metrics(
-        test_set_y=datasets[2][1].get_value(),
-        predicted_values=predicted_values
-    )
+    models = [
+        (linear_regressor_model, 'Linear Regressor'),
+        (mlp_model, 'DNN'),
+        (dbn_model, 'DBN'),
+        (gbrbm_dbn_model, 'GB-DBN')
+    ]
+    run_experiments(models)

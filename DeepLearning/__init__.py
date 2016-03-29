@@ -411,28 +411,42 @@ def get_metrics(test_set_y, predicted_values, model_name):
     print_metrics(ecm_error)
 
 
-def run_experiments(models):
+def run_experiments(models, seed):
+    results = []
+    params = {
+        'learning_rate': 0.01,
+        'annealing_learning_rate': 1,
+        'l1_learning_rate': 0.001,
+        'l2_learning_rate': 0.0001,
+        'n_epochs': 10000,
+        'batch_size': 600,
+        'pre_training_epochs': 50,
+        'pre_train_lr': 0.001,
+        'k': 1
+    }
+    results.append(('params', params))
     for model, name in models:
         cpickle_name = name + '_regressor_RSSI20.save'
+
         lst_cost_test, lst_cost_valid, lst_cost_train = train(
             model=model,
             learning_rate=0.01,
             annealing_learning_rate=1,
             l1_learning_rate=0.001,
             l2_learning_rate=0.0001,
-            n_epochs=10,
+            n_epochs=10000,
             batch_size=600,
             datasets=datasets,
             name_model=cpickle_name,
-            pre_training_epochs=10,
+            pre_training_epochs=50,
             pre_train_lr=0.001,
             k=1
         )
 
-        print_loss(lst_cost_train, name + ' train loss')
-        print_loss(lst_cost_valid, name + ' valid loss')
-        print_loss(lst_cost_test, name + ' test loss')
-        plt.show()
+        # print_loss(lst_cost_train, name + ' train loss')
+        # print_loss(lst_cost_valid, name + ' valid loss')
+        # print_loss(lst_cost_test, name + ' test loss')
+        # plt.show()
 
         # load the saved model
         # with open(os.path.join('trained_models', cpickle_name), 'rb') as f:
@@ -443,12 +457,23 @@ def run_experiments(models):
             name_model=cpickle_name
         )
 
-        get_metrics(
-            test_set_y=datasets[2][1].get_value(),
-            predicted_values=predicted_values,
-            model_name=name
-        )
+        dict_resutls = {
+            'Name': name,
+            'cost_train': lst_cost_train,
+            'cost_valid': lst_cost_valid,
+            'cost_test': lst_cost_test,
+            'predicted_values': predicted_values,
+            'seed': seed
+        }
+        results.append(dict_resutls)
 
+        # get_metrics(
+        #     test_set_y=datasets[2][1].get_value(),
+        #     predicted_values=predicted_values,
+        #     model_name=name
+        # )
+    with open(os.path.join('experiments',  'experiment_results_' + str(seed)), 'wb') as f:
+        cPickle.dump(results, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 def print_loss(lst_cost, tittle):
     # Plot desired output
@@ -463,51 +488,53 @@ if __name__ == '__main__':
     # datasets = load_data('mnist.pkl.gz')
 
     from datasets import DatasetManager
-    datasets = DatasetManager.read_dataset('dataset_simulation_20.csv', shared=True, seed=20)
-    train_set_x, train_set_y = datasets[0]
 
-    n_in = train_set_x.get_value().shape[1]
-    n_out = train_set_y.get_value().shape[1]
+    for seed in range(20, 30, 1):
+        datasets = DatasetManager.read_dataset('dataset_simulation_20.csv', shared=True, seed=seed)
+        train_set_x, train_set_y = datasets[0]
 
-    x = T.matrix('x')
-    rng = numpy.random.RandomState(1234)
+        n_in = train_set_x.get_value().shape[1]
+        n_out = train_set_y.get_value().shape[1]
 
-    linear_regressor_model = LinearRegression(
-        input=x,
-        n_in=n_in,
-        n_out=n_out
-    )
+        x = T.matrix('x')
+        rng = numpy.random.RandomState(1234)
 
-    mlp_model = MLP(
-        rng=rng,
-        input=x,
-        n_in=n_in,
-        hidden_layers_sizes=[1000, 1000, 500, 100, 10],
-        n_out=n_out,
-        activation_function=T.tanh
-    )
+        linear_regressor_model = LinearRegression(
+            input=x,
+            n_in=n_in,
+            n_out=n_out
+        )
 
-    dbn_model = DBN(
-        numpy_rng=rng,
-        n_visible=n_in,
-        theano_rng=None,
-        hidden_layers_sizes=[1000, 1000, 500, 100, 10],
-        n_outs=n_out
-    )
+        mlp_model = MLP(
+            rng=rng,
+            input=x,
+            n_in=n_in,
+            hidden_layers_sizes=[1000, 1000, 500, 100, 10],
+            n_out=n_out,
+            activation_function=T.tanh
+        )
 
-    gbrbm_dbn_model = DBN(
-        numpy_rng=rng,
-        n_visible=n_in,
-        theano_rng=None,
-        hidden_layers_sizes=[1000, 1000, 500, 100, 10],
-        n_outs=n_out,
-        gaussian_visible=True
-    )
+        dbn_model = DBN(
+            numpy_rng=rng,
+            n_visible=n_in,
+            theano_rng=None,
+            hidden_layers_sizes=[1000, 1000, 500, 100, 10],
+            n_outs=n_out
+        )
 
-    models = [
-        (linear_regressor_model, 'Linear Regressor'),
-        (mlp_model, 'DNN'),
-        (dbn_model, 'DBN'),
-        (gbrbm_dbn_model, 'GB-DBN')
-    ]
-    run_experiments(models)
+        gbrbm_dbn_model = DBN(
+            numpy_rng=rng,
+            n_visible=n_in,
+            theano_rng=None,
+            hidden_layers_sizes=[1000, 1000, 500, 100, 10],
+            n_outs=n_out,
+            gaussian_visible=True
+        )
+
+        models = [
+            (linear_regressor_model, 'Linear Regressor'),
+            (mlp_model, 'DNN'),
+            (dbn_model, 'DBN'),
+            (gbrbm_dbn_model, 'GB-DBN')
+        ]
+        run_experiments(models, seed)

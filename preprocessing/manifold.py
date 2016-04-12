@@ -35,7 +35,7 @@ def run_experiment():
     plot_embedding(dataset, result)
 
 
-def plot_embedding(dataset, result, title=None):
+def plot_embedding(dataset, result):
     dataset = get_linear_normalization(dataset)
     used_labels = []
     ax = plt.subplot(111)

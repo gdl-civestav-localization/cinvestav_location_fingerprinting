@@ -2,13 +2,12 @@ import pandas as pd
 import os
 import numpy as np
 import random
-import theano
 
 __author__ = 'Gibran Felix'
 
 
 def read_dataset(dataset_name="dataset_simulation_20.csv", shared=False, seed=None):
-    print '... loading data'
+    print '... loading data', dataset_name
     dataset_name = os.path.join(os.path.dirname(__file__), "dataset", dataset_name)
 
     # Only x and y columns
@@ -105,6 +104,7 @@ def get_sets(dataset, result, train_ratio=.6, test_ratio=.2, valid_ratio=.2, sha
 
 
 def shared_dataset(data_xy, borrow=True):
+    import theano
     data_x, data_y = data_xy
     shared_x = theano.shared(
         np.asarray(
@@ -125,7 +125,6 @@ def shared_dataset(data_xy, borrow=True):
     return shared_x, shared_y
 
 
-if __name__ == "__main__" and __package__ is None:
-    __package__ = "datasets.DatasetManager"
-    read_dataset(dataset_name="dataset_simulation_20.csv", shared=True)
+if __name__ == "__main__":
+    read_dataset(dataset_name="dataset_simulation_20.csv", shared=False)
 

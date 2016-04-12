@@ -1,10 +1,8 @@
-import math
 import pandas as pd
 import os
 import numpy as np
 import random
 import theano
-import theano.tensor as T
 
 __author__ = 'Gibran Felix'
 

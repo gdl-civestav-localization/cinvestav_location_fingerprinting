@@ -26,6 +26,7 @@ def plot(rssi_map, cover, best, figsize=(10, 8)):
     img = ax.imshow(rssi_map,
                     extent=(l, r, b, t),
                     origin='lower',
+                    cmap='jet',
                     vmin=vmin,
                     vmax=vmax)
 
@@ -70,7 +71,7 @@ def run_generate_img():
     c = coverage.Coverage('coverage.ini')  # Max: x=40, y=15
     c.cover()
 
-    rssi_map = c.show(typ='pr', a=1, polar='p', best=False, noise=False)
+    rssi_map = c.show(typ='pr', a=-1, polar='p', best=False, noise=False)
     fig, ax = plot(rssi_map=rssi_map, cover=c, best=False, figsize=(10, 8))
     path = os.path.join(os.path.dirname(__file__), "..", "imagen", "all aps without noise.png")
     print path
@@ -123,5 +124,5 @@ def run_generate_dataset():
 
 
 if __name__ == '__main__':
-    run_generate_dataset()
-    # run_generate_img()
+    # run_generate_dataset()
+    run_generate_img()

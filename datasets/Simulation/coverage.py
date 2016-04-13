@@ -23,6 +23,7 @@ import pylayers.signal.standard as std
 from pylayers.measures.mesuwb import *
 from pylayers.simul.radionode import *
 from pylayers.util.utilnet import str2bool
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 try:
     from mayavi import mlab

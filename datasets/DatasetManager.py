@@ -11,58 +11,18 @@ def read_dataset(dataset_name="dataset_simulation_20.csv", shared=False, seed=No
     dataset_name = os.path.join(os.path.dirname(__file__), "dataset", dataset_name)
 
     # Only x and y columns
-    result = pd.read_csv(dataset_name, index_col=False, dtype=float, header=0, usecols=["result_x", "result_y"])
+    result = pd.read_csv(dataset_name, index_col=False, dtype=float, header=0, usecols=["result_x", "result_y"]).values
 
     # Skip x, y and row number columns
-    dataset = pd.read_csv(dataset_name, dtype=float, header=0, index_col=[0, "result_x", "result_y"])
-
-    """
-    # Binarize dataset by ranges
-    binary_dataset = []
-    for x in dataset.values:
-        new_x = []
-        for x_i in x:
-            x_i_binarize = []
-            x_i = abs(int(x_i))
-            i = x_i / 100
-            x_i = "{0:0100b}".format(0)
-            x_i_binarize.extend(x_i)
-            if(i < len(x_i_binarize)):
-                x_i_binarize[i] = "1"
-            #else:
-            #    x_i_binarize[len(x_i_binarize) - 1] = "1"
-
-            new_x.extend(x_i_binarize)
-        binary_dataset.append(new_x)
-
-    binary_dataset = np.asarray(
-        binary_dataset,
-        dtype=np.int
-    )
-
-    Binarize dataset
-    binary_dataset = []
-    for x in dataset.values:
-        new_x = []
-        for x_i in x:
-            x_i = abs(int(x_i))
-            x_i = "{0:07b}".format(x_i)
-            new_x.extend(x_i)
-        binary_dataset.append(new_x)
-
-    binary_dataset = np.asarray(
-        binary_dataset,
-        dtype=np.int
-    )
-    """
+    dataset = pd.read_csv(dataset_name, dtype=float, header=0, index_col=[0, "result_x", "result_y"]).values
 
     from sklearn import preprocessing
-    dataset = preprocessing.scale(dataset.values)
+    dataset = preprocessing.scale(dataset)
     # Mean1 = dataset.mean(axis=0)
     # Std1 = dataset.std(axis=0)
     # print Mean1, Std1
 
-    return get_sets(dataset=dataset, result=result.values, train_ratio=.6,
+    return get_sets(dataset=dataset, result=result, train_ratio=.6,
                     test_ratio=.2, valid_ratio=.2, shared=shared, seed=seed)
 
 
@@ -127,4 +87,5 @@ def shared_dataset(data_xy, borrow=True):
 
 if __name__ == "__main__":
     read_dataset(dataset_name="dataset_simulation_20.csv", shared=False)
+    read_dataset(dataset_name="dataset_simulation_20.csv", shared=True)
 

@@ -1,11 +1,8 @@
-import numpy as np
-from matplotlib import pyplot as plt
-from datasets import DatasetManager
-from preprocessing.dimensionality_reduction import get_pca
-from preprocessing.scaling import get_gaussian_normalization, get_linear_normalization
-
-
 def run_experiment():
+    from datasets import DatasetManager
+    from preprocessing.scaling import get_gaussian_normalization
+    from preprocessing.dimensionality_reduction import get_pca
+
     train_set, valid_set, test_set = DatasetManager.read_dataset()
     dataset, result = train_set
 
@@ -25,6 +22,10 @@ def plot_embedding(dataset, result):
     dataset: Values to plot
     result: Labels of the data
     """
+    import numpy as np
+    from preprocessing.scaling import get_linear_normalization
+    from matplotlib import pyplot as plt
+
     dataset = np.asarray(dataset)
     result = np.asarray(result)
 

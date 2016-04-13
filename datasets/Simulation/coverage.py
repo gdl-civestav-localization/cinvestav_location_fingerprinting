@@ -15,24 +15,15 @@ Class Coverage
     Coverage.show
 
 """
-from pylayers.util.project import *
-from pylayers.measures.mesuwb import *
-from pylayers.simul.radionode import *
-import pylayers.util.pyutil as pyu
-from pylayers.util.utilnet import str2bool
-from pylayers.gis.layout import Layout
-import pylayers.antprop.loss as loss
-import pylayers.signal.standard as std
+from itertools import product
 
 import matplotlib.cm  as cm
+import pylayers.antprop.loss as loss
+import pylayers.signal.standard as std
+from pylayers.measures.mesuwb import *
+from pylayers.simul.radionode import *
+from pylayers.util.utilnet import str2bool
 
-import numpy as np
-
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import ConfigParser
-import pdb
-import doctest
-from itertools import product
 try:
     from mayavi import mlab
     from tvtk.tools import visual
@@ -76,8 +67,7 @@ class Coverage(PyLayers):
 
     """
 
-
-    def __init__(self,_fileini='coverage.ini'):
+    def __init__(self, _fileini='coverage.ini'):
         """ object constructor
 
         Parameters
@@ -94,15 +84,14 @@ class Coverage(PyLayers):
 
         """
 
-
         self.config = ConfigParser.ConfigParser()
-        self.config.read(pyu.getlong(_fileini,pstruc['DIRSIMUL']))
+        self.config.read(pyu.getlong(_fileini, pstruc['DIRSIMUL']))
 
         self.layoutopt = dict(self.config.items('layout'))
-        self.gridopt   = dict(self.config.items('grid'))
-        self.apopt     = dict(self.config.items('ap'))
-        self.rxopt     = dict(self.config.items('rx'))
-        self.showopt   = dict(self.config.items('show'))
+        self.gridopt = dict(self.config.items('grid'))
+        self.apopt = dict(self.config.items('ap'))
+        self.rxopt = dict(self.config.items('rx'))
+        self.showopt = dict(self.config.items('show'))
 
         # get the Layout
         self.L = Layout(self.layoutopt['filename'])
@@ -117,24 +106,24 @@ class Coverage(PyLayers):
         #
         # create grid
         #
-        self.creategrid(mode=self.mode,boundary=self.boundary,_fileini=self.filespa)
+        self.creategrid(mode=self.mode, boundary=self.boundary, _fileini=self.filespa)
 
         self.dap = {}
         for k in self.apopt:
-            kwargs  = eval(self.apopt[k])
+            kwargs = eval(self.apopt[k])
             ap = std.AP(**kwargs)
             self.dap[eval(k)] = ap
 
         self.fGHz = np.array([])
-        #self.fGHz = eval(self.txopt['fghz'])
-        #self.tx = np.array((eval(self.txopt['x']),eval(self.txopt['y'])))
-        #self.ptdbm = eval(self.txopt['ptdbm'])
-        #self.framelengthbytes = eval(self.txopt['framelengthbytes'])
+        # self.fGHz = eval(self.txopt['fghz'])
+        # self.tx = np.array((eval(self.txopt['x']),eval(self.txopt['y'])))
+        # self.ptdbm = eval(self.txopt['ptdbm'])
+        # self.framelengthbytes = eval(self.txopt['framelengthbytes'])
 
         # receiver section
-        #self.rxsens = eval(self.rxopt['sensitivity'])
+        # self.rxsens = eval(self.rxopt['sensitivity'])
 
-        self.temperaturek  = eval(self.rxopt['temperaturek'])
+        self.temperaturek = eval(self.rxopt['temperaturek'])
         self.noisefactordb = eval(self.rxopt['noisefactordb'])
 
         # show section
@@ -150,28 +139,27 @@ class Coverage(PyLayers):
             self.L.build()
             self.L.dumpw()
 
-
     def __repr__(self):
-        st=''
-        st = st+ 'Layout file : '+self.L.filename + '\n\n'
-        st = st + '-----list of Access Points ------'+'\n'
+        st = ''
+        st = st + 'Layout file : ' + self.L.filename + '\n\n'
+        st = st + '-----list of Access Points ------' + '\n'
         for k in self.dap:
-            st = st + self.dap[k].__repr__()+'\n'
-        st = st + '-----Rx------'+'\n'
-        st= st+ 'temperature (K) : '+ str(self.temperaturek) + '\n'
-        st= st+ 'noisefactor (dB) : '+ str(self.noisefactordb) + '\n\n'
-        st = st + '--- Grid ----'+'\n'
-        st= st+ 'mode : ' + str(self.mode) + '\n'
-        if self.mode<>'file':
-            st= st+ 'nx : ' + str(self.nx) + '\n'
-            st= st+ 'ny : ' + str(self.ny) + '\n'
-        if self.mode=='zone':
-            st= st+ 'boundary (xmin,ymin,xmax,ymax) : ' + str(self.boundary) + '\n\n'
-        if self.mode=='file':
-            st = st+' filename : '+self.filespa+'\n'
-        return(st)
+            st = st + self.dap[k].__repr__() + '\n'
+        st = st + '-----Rx------' + '\n'
+        st = st + 'temperature (K) : ' + str(self.temperaturek) + '\n'
+        st = st + 'noisefactor (dB) : ' + str(self.noisefactordb) + '\n\n'
+        st = st + '--- Grid ----' + '\n'
+        st = st + 'mode : ' + str(self.mode) + '\n'
+        if self.mode <> 'file':
+            st = st + 'nx : ' + str(self.nx) + '\n'
+            st = st + 'ny : ' + str(self.ny) + '\n'
+        if self.mode == 'zone':
+            st = st + 'boundary (xmin,ymin,xmax,ymax) : ' + str(self.boundary) + '\n\n'
+        if self.mode == 'file':
+            st = st + ' filename : ' + self.filespa + '\n'
+        return (st)
 
-    def creategrid(self,mode='full',boundary=[],_fileini=''):
+    def creategrid(self, mode='full', boundary=[], _fileini=''):
         """ create a grid
 
         Parameters
@@ -183,25 +171,25 @@ class Coverage(PyLayers):
             if full is False the boundary argument is used
 
         """
-        if mode=="file":
+        if mode == "file":
             self.RN = RadioNode(name='',
-                               typ='rx',
-                               _fileini = _fileini,
-                               _fileant = 'def.vsh3')
-            self.grid =self.RN.position[0:2,:].T
+                                typ='rx',
+                                _fileini=_fileini,
+                                _fileant='def.vsh3')
+            self.grid = self.RN.position[0:2, :].T
         else:
-            if mode=="full":
-                mi=np.min(self.L.Gs.pos.values(),axis=0)+0.01
-                ma=np.max(self.L.Gs.pos.values(),axis=0)-0.01
-            if mode=="zone":
-                assert boundary<>[]
-                mi = np.array([boundary[0],boundary[1]])
-                ma = np.array([boundary[2],boundary[3]])
+            if mode == "full":
+                mi = np.min(self.L.Gs.pos.values(), axis=0) + 0.01
+                ma = np.max(self.L.Gs.pos.values(), axis=0) - 0.01
+            if mode == "zone":
+                assert boundary <> []
+                mi = np.array([boundary[0], boundary[1]])
+                ma = np.array([boundary[2], boundary[3]])
 
-            x = np.linspace(mi[0],ma[0],self.nx)
-            y = np.linspace(mi[1],ma[1],self.ny)
+            x = np.linspace(mi[0], ma[0], self.nx)
+            y = np.linspace(mi[1], ma[1], self.ny)
 
-            self.grid=np.array((list(np.broadcast(*np.ix_(x, y)))))
+            self.grid = np.array((list(np.broadcast(*np.ix_(x, y)))))
 
         self.ng = self.grid.shape[0]
 
@@ -210,57 +198,57 @@ class Coverage(PyLayers):
         Unfinished : Not sure this is the right place (too specific)
         """
         M1 = UWBMeasure(1)
-        self.dap={}
-        self.dap[1]={}
-        self.dap[2]={}
-        self.dap[3]={}
-        self.dap[4]={}
-        self.dap[1]['p']=M1.rx[1,0:2]
-        self.dap[2]['p']=M1.rx[1,0:2]
-        self.dap[3]['p']=M1.rx[1,0:2]
-        self.dap[4]['p']=M1.rx[1,0:2]
+        self.dap = {}
+        self.dap[1] = {}
+        self.dap[2] = {}
+        self.dap[3] = {}
+        self.dap[4] = {}
+        self.dap[1]['p'] = M1.rx[1, 0:2]
+        self.dap[2]['p'] = M1.rx[1, 0:2]
+        self.dap[3]['p'] = M1.rx[1, 0:2]
+        self.dap[4]['p'] = M1.rx[1, 0:2]
         for k in range(300):
             try:
                 M = UWBMeasure(k)
                 tx = M.tx
-                self.grid=np.vstack((self.grid,tx[0:2]))
-                D  = M.rx-tx[np.newaxis,:]
-                D2 = D*D
-                dist = np.sqrt(np.sum(D2,axis=1))[1:]
+                self.grid = np.vstack((self.grid, tx[0:2]))
+                D = M.rx - tx[np.newaxis, :]
+                D2 = D * D
+                dist = np.sqrt(np.sum(D2, axis=1))[1:]
                 Emax = M.Emax()
                 Etot = M.Etot()[0]
                 try:
-                    td1 = np.hstack((td1,dist[0]))
-                    td2 = np.hstack((td2,dist[1]))
-                    td3 = np.hstack((td3,dist[2]))
-                    td4 = np.hstack((td4,dist[3]))
-                    te1 = np.hstack((te1,Emax[0]))
-                    te2 = np.hstack((te2,Emax[1]))
-                    te3 = np.hstack((te3,Emax[2]))
-                    te4 = np.hstack((te4,Emax[3]))
-                    tt1 = np.hstack((tt1,Etot[0]))
-                    tt2 = np.hstack((tt2,Etot[1]))
-                    tt3 = np.hstack((tt3,Etot[2]))
-                    tt4 = np.hstack((tt4,Etot[3]))
-                    #tdist = np.hstack((tdist,dist))
-                    #te = np.hstack((te,Emax))
+                    td1 = np.hstack((td1, dist[0]))
+                    td2 = np.hstack((td2, dist[1]))
+                    td3 = np.hstack((td3, dist[2]))
+                    td4 = np.hstack((td4, dist[3]))
+                    te1 = np.hstack((te1, Emax[0]))
+                    te2 = np.hstack((te2, Emax[1]))
+                    te3 = np.hstack((te3, Emax[2]))
+                    te4 = np.hstack((te4, Emax[3]))
+                    tt1 = np.hstack((tt1, Etot[0]))
+                    tt2 = np.hstack((tt2, Etot[1]))
+                    tt3 = np.hstack((tt3, Etot[2]))
+                    tt4 = np.hstack((tt4, Etot[3]))
+                    # tdist = np.hstack((tdist,dist))
+                    # te = np.hstack((te,Emax))
                 except:
-                    td1=np.array(dist[0])
-                    td2=np.array(dist[1])
-                    td3=np.array(dist[2])
-                    td4=np.array(dist[3])
-                    te1 =np.array(Emax[0])
-                    te2 =np.array(Emax[1])
-                    te3 =np.array(Emax[2])
-                    te4 =np.array(Emax[3])
-                    tt1 =np.array(Etot[0])
-                    tt2 =np.array(Etot[1])
-                    tt3 =np.array(Etot[2])
-                    tt4 =np.array(Etot[3])
+                    td1 = np.array(dist[0])
+                    td2 = np.array(dist[1])
+                    td3 = np.array(dist[2])
+                    td4 = np.array(dist[3])
+                    te1 = np.array(Emax[0])
+                    te2 = np.array(Emax[1])
+                    te3 = np.array(Emax[2])
+                    te4 = np.array(Emax[3])
+                    tt1 = np.array(Etot[0])
+                    tt2 = np.array(Etot[1])
+                    tt3 = np.array(Etot[2])
+                    tt4 = np.array(Etot[3])
             except:
                 pass
 
-    def cover(self,sinr=True,snr=True,best=True):
+    def cover(self, sinr=True, snr=True, best=True):
         """ run the coverage calculation
 
         Parameters
@@ -321,48 +309,48 @@ class Coverage(PyLayers):
         except:
             pass
 
-        self.kB = 1.3806503e-23 # Boltzmann constant
+        self.kB = 1.3806503e-23  # Boltzmann constant
         for iap in self.dap:
             if self.dap[iap]['on']:
                 lactiveAP.append(iap)
                 fGHz = self.dap[iap].s.fcghz
-                self.fGHz=np.unique(np.hstack((self.fGHz,fGHz)))
+                self.fGHz = np.unique(np.hstack((self.fGHz, fGHz)))
                 apchan = self.dap[iap]['chan']
                 try:
-                    self.aap   = np.vstack((self.aap,self.dap[iap]['p'][0:2]))
-                    self.ptdbm = np.vstack((self.ptdbm,self.dap[iap]['PtdBm']))
-                    self.bmhz  = np.vstack((self.bmhz,
-                                 self.dap[iap].s.chan[apchan[0]]['BMHz']))
+                    self.aap = np.vstack((self.aap, self.dap[iap]['p'][0:2]))
+                    self.ptdbm = np.vstack((self.ptdbm, self.dap[iap]['PtdBm']))
+                    self.bmhz = np.vstack((self.bmhz,
+                                           self.dap[iap].s.chan[apchan[0]]['BMHz']))
                 except:
-                    self.aap   = self.dap[iap]['p'][0:2]
+                    self.aap = self.dap[iap]['p'][0:2]
                     self.ptdbm = np.array(self.dap[iap]['PtdBm'])
-                    self.bmhz  = np.array(self.dap[iap].s.chan[apchan[0]]['BMHz'])
+                    self.bmhz = np.array(self.dap[iap].s.chan[apchan[0]]['BMHz'])
 
-        PnW = np.array((10**(self.noisefactordb/10.))*self.kB*self.temperaturek*self.bmhz*1e6)
+        PnW = np.array((10 ** (self.noisefactordb / 10.)) * self.kB * self.temperaturek * self.bmhz * 1e6)
         # Evaluate Noise Power (in dBm)
-        self.pndbm = np.array(10*np.log10(PnW)+30)
-        #lchan = map(lambda x: self.dap[x]['chan'],lap)
-        #apchan = zip(self.dap.keys(),lchan)
-        #self.bmhz = np.array(map(lambda x: self.dap[x[0]].s.chan[x[1][0]]['BMHz']*len(x[1]),apchan))
+        self.pndbm = np.array(10 * np.log10(PnW) + 30)
+        # lchan = map(lambda x: self.dap[x]['chan'],lap)
+        # apchan = zip(self.dap.keys(),lchan)
+        # self.bmhz = np.array(map(lambda x: self.dap[x[0]].s.chan[x[1][0]]['BMHz']*len(x[1]),apchan))
 
         self.ptdbm = self.ptdbm.T
         self.pndbm = self.pndbm.T
         # creating all links
-        p = product(range(self.ng),lactiveAP)
+        p = product(range(self.ng), lactiveAP)
         #
         # pa : access point
         # pg : grid point
         #
         # 1 x na
         for k in p:
-            pg = self.grid[k[0],:]
+            pg = self.grid[k[0], :]
             pa = self.dap[k[1]]['p'][0:2]
             try:
-                self.pa = np.vstack((self.pa,pa))
+                self.pa = np.vstack((self.pa, pa))
             except:
                 self.pa = pa
             try:
-                self.pg = np.vstack((self.pg,pg))
+                self.pg = np.vstack((self.pg, pg))
             except:
                 self.pg = pg
 
@@ -376,22 +364,21 @@ class Coverage(PyLayers):
         ng = self.ng
         nf = self.nf
 
-        Lwo,Lwp,Edo,Edp = loss.Losst(self.L,self.fGHz,self.pa,self.pg,dB=False)
-        self.Lwo = Lwo.reshape(nf,ng,na)
-        self.Edo = Edo.reshape(nf,ng,na)
-        self.Lwp = Lwp.reshape(nf,ng,na)
-        self.Edp = Edp.reshape(nf,ng,na)
+        Lwo, Lwp, Edo, Edp = loss.Losst(self.L, self.fGHz, self.pa, self.pg, dB=False)
+        self.Lwo = Lwo.reshape(nf, ng, na)
+        self.Edo = Edo.reshape(nf, ng, na)
+        self.Lwp = Lwp.reshape(nf, ng, na)
+        self.Edp = Edp.reshape(nf, ng, na)
 
-        freespace = loss.PL(self.fGHz,self.pa,self.pg,dB=False)
-        self.freespace = freespace.reshape(nf,ng,na)
+        freespace = loss.PL(self.fGHz, self.pa, self.pg, dB=False)
+        self.freespace = freespace.reshape(nf, ng, na)
 
         # transmitting power
         # f x g x a
 
         # CmW : Received Power coverage in mW
-        self.CmWo = 10**(self.ptdbm[np.newaxis,...]/10.)*self.Lwo*self.freespace
-        self.CmWp = 10**(self.ptdbm[np.newaxis,...]/10.)*self.Lwp*self.freespace
-
+        self.CmWo = 10 ** (self.ptdbm[np.newaxis, ...] / 10.) * self.Lwo * self.freespace
+        self.CmWp = 10 ** (self.ptdbm[np.newaxis, ...] / 10.) * self.Lwp * self.freespace
 
         if snr:
             self.evsnr()
@@ -404,10 +391,10 @@ class Coverage(PyLayers):
         """ calculates snr
         """
 
-        NmW = 10**(self.pndbm/10.)[np.newaxis,:]
+        NmW = 10 ** (self.pndbm / 10.)[np.newaxis, :]
 
-        self.snro = self.CmWo/NmW
-        self.snrp = self.CmWp/NmW
+        self.snro = self.CmWo / NmW
+        self.snrp = self.CmWp / NmW
 
     def evsinr(self):
         """ calculates sinr
@@ -416,16 +403,15 @@ class Coverage(PyLayers):
 
         na = self.na
 
-        U = (np.ones((na,na))-np.eye(na))[np.newaxis,np.newaxis,:,:]
+        U = (np.ones((na, na)) - np.eye(na))[np.newaxis, np.newaxis, :, :]
 
-        ImWo = np.einsum('ijkl,ijl->ijk',U,self.CmWo)
-        ImWp = np.einsum('ijkl,ijl->ijk',U,self.CmWp)
+        ImWo = np.einsum('ijkl,ijl->ijk', U, self.CmWo)
+        ImWp = np.einsum('ijkl,ijl->ijk', U, self.CmWp)
 
+        NmW = 10 ** (self.pndbm / 10.)[np.newaxis, :]
 
-        NmW = 10**(self.pndbm/10.)[np.newaxis,:]
-
-        self.sinro = self.CmWo/(ImWo+NmW)
-        self.sinrp = self.CmWp/(ImWp+NmW)
+        self.sinro = self.CmWo / (ImWo + NmW)
+        self.sinrp = self.CmWp / (ImWp + NmW)
 
     def evbestsv(self):
         """ determine best server map
@@ -442,330 +428,331 @@ class Coverage(PyLayers):
         # find best server regions
         Vo = self.CmWo
         Vp = self.CmWp
-        self.bestsvo = np.empty(nf*ng*na).reshape(nf,ng,na)
-        self.bestsvp = np.empty(nf*ng*na).reshape(nf,ng,na)
+        self.bestsvo = np.empty(nf * ng * na).reshape(nf, ng, na)
+        self.bestsvp = np.empty(nf * ng * na).reshape(nf, ng, na)
         for kf in range(nf):
-            MaxVo = np.max(Vo[kf,:,:],axis=1)
-            MaxVp = np.max(Vp[kf,:,:],axis=1)
+            MaxVo = np.max(Vo[kf, :, :], axis=1)
+            MaxVp = np.max(Vp[kf, :, :], axis=1)
             for ka in range(na):
-                uo = np.where(Vo[kf,:,ka]==MaxVo)
-                up = np.where(Vp[kf,:,ka]==MaxVp)
-                self.bestsvo[kf,uo,ka]=ka+1
-                self.bestsvp[kf,up,ka]=ka+1
+                uo = np.where(Vo[kf, :, ka] == MaxVo)
+                up = np.where(Vp[kf, :, ka] == MaxVp)
+                self.bestsvo[kf, uo, ka] = ka + 1
+                self.bestsvp[kf, up, ka] = ka + 1
 
 
-#    def showEd(self,polar='o',**kwargs):
-#        """ shows a map of direct path excess delay
-#
-#        Parameters
-#        ----------
-#
-#        polar : string
-#        'o' | 'p'
-#
-#        Examples
-#        --------
-#
-#        .. plot::
-#            :include-source:
-#
-#            >> from pylayers.antprop.coverage import *
-#            >> C = Coverage()
-#            >> C.cover()
-#            >> C.showEd(polar='o')
-#
-#        """
-#
-#        if not kwargs.has_key('alphacy'):
-#            kwargs['alphacy']=0.0
-#        if not kwargs.has_key('colorcy'):
-#            kwargs['colorcy']='w'
-#        if not kwargs.has_key('nodes'):
-#            kwargs['nodes']=False
-#
-#        fig,ax = self.L.showG('s',**kwargs)
-#        l = self.grid[0,0]
-#        r = self.grid[-1,0]
-#        b = self.grid[0,1]
-#        t = self.grid[-1,-1]
-#
-#        cdict = {
-#        'red'  :  ((0., 0.5, 0.5), (1., 1., 1.)),
-#        'green':  ((0., 0.5, 0.5), (1., 1., 1.)),
-#        'blue' :  ((0., 0.5, 0.5), (1., 1., 1.))
-#        }
-#        #generate the colormap with 1024 interpolated values
-#        my_cmap = m.colors.LinearSegmentedColormap('my_colormap', cdict, 1024)
-#
-#        if polar=='o':
-#            prdbm=self.prdbmo
-#        if polar=='p':
-#            prdbm=self.prdbmp
-#
-#
-#
-#        if polar=='o':
-#            mcEdof = np.ma.masked_where(prdbm < self.rxsens,self.Edo)
-#
-#            cov=ax.imshow(mcEdof.reshape((self.nx,self.ny)).T,
-#                             extent=(l,r,b,t),cmap = 'jet',
-#                             origin='lower')
-#
-#
-#
-#            # cov=ax.imshow(self.Edo.reshape((self.nx,self.ny)).T,
-#            #           extent=(l,r,b,t),
-#            #           origin='lower')
-#            titre = "Map of LOS excess delay, polar orthogonal"
-#
-#        if polar=='p':
-#            mcEdpf = np.ma.masked_where(prdbm < self.rxsens,self.Edp)
-#
-#            cov=ax.imshow(mcEdpf.reshape((self.nx,self.ny)).T,
-#                             extent=(l,r,b,t),cmap = 'jet',
-#                             origin='lower')
-#
-#            # cov=ax.imshow(self.Edp.reshape((self.nx,self.ny)).T,
-#            #           extent=(l,r,b,t),
-#            #           origin='lower')
-#            titre = "Map of LOS excess delay, polar parallel"
-#
-#        ax.scatter(self.tx[0],self.tx[1],linewidth=0)
-#        ax.set_title(titre)
-#
-#        divider = make_axes_locatable(ax)
-#        cax = divider.append_axes("right", size="5%", pad=0.05)
-#        clb = fig.colorbar(cov,cax)
-#        clb.set_label('excess delay (ns)')
-#
-#        if self.show:
-#            plt.show()
-#        return fig,ax
-#
-#    def showPower(self,rxsens=True,nfl=True,polar='o',**kwargs):
-#        """ show the map of received power
-#
-#        Parameters
-#        ----------
-#
-#        rxsens : bool
-#              clip the map with rx sensitivity set in self.rxsens
-#        nfl : bool
-#              clip the map with noise floor set in self.pndbm
-#        polar : string
-#            'o'|'p'
-#
-#        Examples
-#        --------
-#
-#        .. plot::
-#            :include-source:
-#
-#            > from pylayers.antprop.coverage import *
-#            > C = Coverage()
-#            > C.cover()
-#            > C.showPower()
-#
-#        """
-#
-#        if not kwargs.has_key('alphacy'):
-#            kwargs['alphacy']=0.0
-#        if not kwargs.has_key('colorcy'):
-#            kwargs['colorcy']='w'
-#        if not kwargs.has_key('nodes'):
-#            kwargs['nodes']=False
-#        fig,ax = self.L.showG('s',**kwargs)
-#
-#        l = self.grid[0,0]
-#        r = self.grid[-1,0]
-#        b = self.grid[0,1]
-#        t = self.grid[-1,-1]
-#
-#        if polar=='o':
-#            prdbm=self.prdbmo
-#        if polar=='p':
-#            prdbm=self.prdbmp
-#
-##        tCM = plt.cm.get_cmap('jet')
-##        tCM._init()
-##        alphas = np.abs(np.linspace(.0,1.0, tCM.N))
-##        tCM._lut[:-3,-1] = alphas
-#
-#        title='Map of received power - Pt = ' + str(self.ptdbm) + ' dBm'+str(' fGHz =') + str(self.fGHz) + ' polar = '+polar
-#
-#        cdict = {
-#        'red'  :  ((0., 0.5, 0.5), (1., 1., 1.)),
-#        'green':  ((0., 0.5, 0.5), (1., 1., 1.)),
-#        'blue' :  ((0., 0.5, 0.5), (1., 1., 1.))
-#        }
-#
-#        if not kwargs.has_key('cmap'):
-#        # generate the colormap with 1024 interpolated values
-#            cmap = m.colors.LinearSegmentedColormap('my_colormap', cdict, 1024)
-#        else:
-#            cmap = kwargs['cmap']
-#        #my_cmap = cm.copper
-#
-#
-#        if rxsens :
-#
-#            ## values between the rx sensitivity and noise floor
-#            mcPrf = np.ma.masked_where((prdbm > self.rxsens)
-#                                     & (prdbm < self.pndbm),prdbm)
-#            # mcPrf = np.ma.masked_where((prdbm > self.rxsens) ,prdbm)
-#
-#            cov1 = ax.imshow(mcPrf.reshape((self.nx,self.ny)).T,
-#                             extent=(l,r,b,t),cmap = cm.copper,
-#                             vmin=self.rxsens,origin='lower')
-#
-#            ### values above the sensitivity
-#            mcPrs = np.ma.masked_where(prdbm < self.rxsens,prdbm)
-#            cov = ax.imshow(mcPrs.reshape((self.nx,self.ny)).T,
-#                            extent=(l,r,b,t),
-#                            cmap = cmap,
-#                            vmin=self.rxsens,origin='lower')
-#            title=title + '\n black : Pr (dBm) < %.2f' % self.rxsens + ' dBm'
-#
-#        else :
-#            cov=ax.imshow(prdbm.reshape((self.nx,self.ny)).T,
-#                          extent=(l,r,b,t),
-#                          cmap = cmap,
-#                          vmin=self.pndbm,origin='lower')
-#
-#        if nfl:
-#            ### values under the noise floor
-#            ### we first clip the value below the noise floor
-#            cl = np.nonzero(prdbm<=self.pndbm)
-#            cPr = prdbm
-#            cPr[cl] = self.pndbm
-#            mcPruf = np.ma.masked_where(cPr > self.pndbm,cPr)
-#            cov2 = ax.imshow(mcPruf.reshape((self.nx,self.ny)).T,
-#                             extent=(l,r,b,t),cmap = 'binary',
-#                             vmax=self.pndbm,origin='lower')
-#            title=title + '\n white : Pr (dBm) < %.2f' % self.pndbm + ' dBm'
-#
-#
-#        ax.scatter(self.tx[0],self.tx[1],s=10,c='k',linewidth=0)
-#
-#        ax.set_title(title)
-#        divider = make_axes_locatable(ax)
-#        cax = divider.append_axes("right", size="5%", pad=0.05)
-#        clb = fig.colorbar(cov,cax)
-#        clb.set_label('Power (dBm)')
-#
-#        if self.show:
-#            plt.show()
-#
-#        return fig,ax
-#
-#
-#    def showTransistionRegion(self,polar='o'):
-#        """
-#
-#        Notes
-#        -----
-#
-#        See  : "Analyzing the Transitional Region in Low Power Wireless Links"
-#                Marco Zuniga and Bhaskar Krishnamachari
-#
-#        Examples
-#        --------
-#
-#        .. plot::
-#            :include-source:
-#
-#            > from pylayers.antprop.coverage import *
-#            > C = Coverage()
-#            > C.cover()
-#            > C.showTransitionRegion()
-#
-#        """
-#
-#        frameLength = self.framelengthbytes
-#
-#        PndBm = self.pndbm
-#        gammaU = 10*np.log10(-1.28*np.log(2*(1-0.9**(1./(8*frameLength)))))
-#        gammaL = 10*np.log10(-1.28*np.log(2*(1-0.1**(1./(8*frameLength)))))
-#
-#        PrU = PndBm + gammaU
-#        PrL = PndBm + gammaL
-#
-#        fig,ax = self.L.showGs()
-#
-#        l = self.grid[0,0]
-#        r = self.grid[-1,0]
-#        b = self.grid[0,1]
-#        t = self.grid[-1,-1]
-#
-#        if polar=='o':
-#            prdbm=self.prdbmo
-#        if polar=='p':
-#            prdbm=self.prdbmp
-#
-#        zones = np.zeros(np.shape(prdbm))
-#        #pdb.set_trace()
-#
-#        uconnected  = np.nonzero(prdbm>PrU)
-#        utransition = np.nonzero((prdbm < PrU)&(prdbm > PrL))
-#        udisconnected = np.nonzero(prdbm < PrL)
-#
-#        zones[uconnected] = 1
-#        zones[utransition] = (prdbm[utransition]-PrL)/(PrU-PrL)
-#        cov = ax.imshow(zones.reshape((self.nx,self.ny)).T,
-#                             extent=(l,r,b,t),cmap = 'BuGn',origin='lower')
-#
-#        title='PDR region'
-#        ax.scatter(self.tx[0],self.tx[1],linewidth=0)
-#
-#        ax.set_title(title)
-#        divider = make_axes_locatable(ax)
-#        cax = divider.append_axes("right", size="5%", pad=0.05)
-#        fig.colorbar(cov,cax)
-#        if self.show:
-#            plt.show()
-#
-    def plot(self,**kwargs):
+            #    def showEd(self,polar='o',**kwargs):
+            #        """ shows a map of direct path excess delay
+            #
+            #        Parameters
+            #        ----------
+            #
+            #        polar : string
+            #        'o' | 'p'
+            #
+            #        Examples
+            #        --------
+            #
+            #        .. plot::
+            #            :include-source:
+            #
+            #            >> from pylayers.antprop.coverage import *
+            #            >> C = Coverage()
+            #            >> C.cover()
+            #            >> C.showEd(polar='o')
+            #
+            #        """
+            #
+            #        if not kwargs.has_key('alphacy'):
+            #            kwargs['alphacy']=0.0
+            #        if not kwargs.has_key('colorcy'):
+            #            kwargs['colorcy']='w'
+            #        if not kwargs.has_key('nodes'):
+            #            kwargs['nodes']=False
+            #
+            #        fig,ax = self.L.showG('s',**kwargs)
+            #        l = self.grid[0,0]
+            #        r = self.grid[-1,0]
+            #        b = self.grid[0,1]
+            #        t = self.grid[-1,-1]
+            #
+            #        cdict = {
+            #        'red'  :  ((0., 0.5, 0.5), (1., 1., 1.)),
+            #        'green':  ((0., 0.5, 0.5), (1., 1., 1.)),
+            #        'blue' :  ((0., 0.5, 0.5), (1., 1., 1.))
+            #        }
+            #        #generate the colormap with 1024 interpolated values
+            #        my_cmap = m.colors.LinearSegmentedColormap('my_colormap', cdict, 1024)
+            #
+            #        if polar=='o':
+            #            prdbm=self.prdbmo
+            #        if polar=='p':
+            #            prdbm=self.prdbmp
+            #
+            #
+            #
+            #        if polar=='o':
+            #            mcEdof = np.ma.masked_where(prdbm < self.rxsens,self.Edo)
+            #
+            #            cov=ax.imshow(mcEdof.reshape((self.nx,self.ny)).T,
+            #                             extent=(l,r,b,t),cmap = 'jet',
+            #                             origin='lower')
+            #
+            #
+            #
+            #            # cov=ax.imshow(self.Edo.reshape((self.nx,self.ny)).T,
+            #            #           extent=(l,r,b,t),
+            #            #           origin='lower')
+            #            titre = "Map of LOS excess delay, polar orthogonal"
+            #
+            #        if polar=='p':
+            #            mcEdpf = np.ma.masked_where(prdbm < self.rxsens,self.Edp)
+            #
+            #            cov=ax.imshow(mcEdpf.reshape((self.nx,self.ny)).T,
+            #                             extent=(l,r,b,t),cmap = 'jet',
+            #                             origin='lower')
+            #
+            #            # cov=ax.imshow(self.Edp.reshape((self.nx,self.ny)).T,
+            #            #           extent=(l,r,b,t),
+            #            #           origin='lower')
+            #            titre = "Map of LOS excess delay, polar parallel"
+            #
+            #        ax.scatter(self.tx[0],self.tx[1],linewidth=0)
+            #        ax.set_title(titre)
+            #
+            #        divider = make_axes_locatable(ax)
+            #        cax = divider.append_axes("right", size="5%", pad=0.05)
+            #        clb = fig.colorbar(cov,cax)
+            #        clb.set_label('excess delay (ns)')
+            #
+            #        if self.show:
+            #            plt.show()
+            #        return fig,ax
+            #
+            #    def showPower(self,rxsens=True,nfl=True,polar='o',**kwargs):
+            #        """ show the map of received power
+            #
+            #        Parameters
+            #        ----------
+            #
+            #        rxsens : bool
+            #              clip the map with rx sensitivity set in self.rxsens
+            #        nfl : bool
+            #              clip the map with noise floor set in self.pndbm
+            #        polar : string
+            #            'o'|'p'
+            #
+            #        Examples
+            #        --------
+            #
+            #        .. plot::
+            #            :include-source:
+            #
+            #            > from pylayers.antprop.coverage import *
+            #            > C = Coverage()
+            #            > C.cover()
+            #            > C.showPower()
+            #
+            #        """
+            #
+            #        if not kwargs.has_key('alphacy'):
+            #            kwargs['alphacy']=0.0
+            #        if not kwargs.has_key('colorcy'):
+            #            kwargs['colorcy']='w'
+            #        if not kwargs.has_key('nodes'):
+            #            kwargs['nodes']=False
+            #        fig,ax = self.L.showG('s',**kwargs)
+            #
+            #        l = self.grid[0,0]
+            #        r = self.grid[-1,0]
+            #        b = self.grid[0,1]
+            #        t = self.grid[-1,-1]
+            #
+            #        if polar=='o':
+            #            prdbm=self.prdbmo
+            #        if polar=='p':
+            #            prdbm=self.prdbmp
+            #
+            ##        tCM = plt.cm.get_cmap('jet')
+            ##        tCM._init()
+            ##        alphas = np.abs(np.linspace(.0,1.0, tCM.N))
+            ##        tCM._lut[:-3,-1] = alphas
+            #
+            #        title='Map of received power - Pt = ' + str(self.ptdbm) + ' dBm'+str(' fGHz =') + str(self.fGHz) + ' polar = '+polar
+            #
+            #        cdict = {
+            #        'red'  :  ((0., 0.5, 0.5), (1., 1., 1.)),
+            #        'green':  ((0., 0.5, 0.5), (1., 1., 1.)),
+            #        'blue' :  ((0., 0.5, 0.5), (1., 1., 1.))
+            #        }
+            #
+            #        if not kwargs.has_key('cmap'):
+            #        # generate the colormap with 1024 interpolated values
+            #            cmap = m.colors.LinearSegmentedColormap('my_colormap', cdict, 1024)
+            #        else:
+            #            cmap = kwargs['cmap']
+            #        #my_cmap = cm.copper
+            #
+            #
+            #        if rxsens :
+            #
+            #            ## values between the rx sensitivity and noise floor
+            #            mcPrf = np.ma.masked_where((prdbm > self.rxsens)
+            #                                     & (prdbm < self.pndbm),prdbm)
+            #            # mcPrf = np.ma.masked_where((prdbm > self.rxsens) ,prdbm)
+            #
+            #            cov1 = ax.imshow(mcPrf.reshape((self.nx,self.ny)).T,
+            #                             extent=(l,r,b,t),cmap = cm.copper,
+            #                             vmin=self.rxsens,origin='lower')
+            #
+            #            ### values above the sensitivity
+            #            mcPrs = np.ma.masked_where(prdbm < self.rxsens,prdbm)
+            #            cov = ax.imshow(mcPrs.reshape((self.nx,self.ny)).T,
+            #                            extent=(l,r,b,t),
+            #                            cmap = cmap,
+            #                            vmin=self.rxsens,origin='lower')
+            #            title=title + '\n black : Pr (dBm) < %.2f' % self.rxsens + ' dBm'
+            #
+            #        else :
+            #            cov=ax.imshow(prdbm.reshape((self.nx,self.ny)).T,
+            #                          extent=(l,r,b,t),
+            #                          cmap = cmap,
+            #                          vmin=self.pndbm,origin='lower')
+            #
+            #        if nfl:
+            #            ### values under the noise floor
+            #            ### we first clip the value below the noise floor
+            #            cl = np.nonzero(prdbm<=self.pndbm)
+            #            cPr = prdbm
+            #            cPr[cl] = self.pndbm
+            #            mcPruf = np.ma.masked_where(cPr > self.pndbm,cPr)
+            #            cov2 = ax.imshow(mcPruf.reshape((self.nx,self.ny)).T,
+            #                             extent=(l,r,b,t),cmap = 'binary',
+            #                             vmax=self.pndbm,origin='lower')
+            #            title=title + '\n white : Pr (dBm) < %.2f' % self.pndbm + ' dBm'
+            #
+            #
+            #        ax.scatter(self.tx[0],self.tx[1],s=10,c='k',linewidth=0)
+            #
+            #        ax.set_title(title)
+            #        divider = make_axes_locatable(ax)
+            #        cax = divider.append_axes("right", size="5%", pad=0.05)
+            #        clb = fig.colorbar(cov,cax)
+            #        clb.set_label('Power (dBm)')
+            #
+            #        if self.show:
+            #            plt.show()
+            #
+            #        return fig,ax
+            #
+            #
+            #    def showTransistionRegion(self,polar='o'):
+            #        """
+            #
+            #        Notes
+            #        -----
+            #
+            #        See  : "Analyzing the Transitional Region in Low Power Wireless Links"
+            #                Marco Zuniga and Bhaskar Krishnamachari
+            #
+            #        Examples
+            #        --------
+            #
+            #        .. plot::
+            #            :include-source:
+            #
+            #            > from pylayers.antprop.coverage import *
+            #            > C = Coverage()
+            #            > C.cover()
+            #            > C.showTransitionRegion()
+            #
+            #        """
+            #
+            #        frameLength = self.framelengthbytes
+            #
+            #        PndBm = self.pndbm
+            #        gammaU = 10*np.log10(-1.28*np.log(2*(1-0.9**(1./(8*frameLength)))))
+            #        gammaL = 10*np.log10(-1.28*np.log(2*(1-0.1**(1./(8*frameLength)))))
+            #
+            #        PrU = PndBm + gammaU
+            #        PrL = PndBm + gammaL
+            #
+            #        fig,ax = self.L.showGs()
+            #
+            #        l = self.grid[0,0]
+            #        r = self.grid[-1,0]
+            #        b = self.grid[0,1]
+            #        t = self.grid[-1,-1]
+            #
+            #        if polar=='o':
+            #            prdbm=self.prdbmo
+            #        if polar=='p':
+            #            prdbm=self.prdbmp
+            #
+            #        zones = np.zeros(np.shape(prdbm))
+            #        #pdb.set_trace()
+            #
+            #        uconnected  = np.nonzero(prdbm>PrU)
+            #        utransition = np.nonzero((prdbm < PrU)&(prdbm > PrL))
+            #        udisconnected = np.nonzero(prdbm < PrL)
+            #
+            #        zones[uconnected] = 1
+            #        zones[utransition] = (prdbm[utransition]-PrL)/(PrU-PrL)
+            #        cov = ax.imshow(zones.reshape((self.nx,self.ny)).T,
+            #                             extent=(l,r,b,t),cmap = 'BuGn',origin='lower')
+            #
+            #        title='PDR region'
+            #        ax.scatter(self.tx[0],self.tx[1],linewidth=0)
+            #
+            #        ax.set_title(title)
+            #        divider = make_axes_locatable(ax)
+            #        cax = divider.append_axes("right", size="5%", pad=0.05)
+            #        fig.colorbar(cov,cax)
+            #        if self.show:
+            #            plt.show()
+            #
+
+    def plot(self, **kwargs):
         """
         """
-        defaults = { 'typ': 'pr',
-                     'grid': False,
-                     'f' : 0,
-                     'a' : 0,
-                     'db':True,
-                     'col':'b'
-                   }
+        defaults = {'typ': 'pr',
+                    'grid': False,
+                    'f': 0,
+                    'a': 0,
+                    'db': True,
+                    'col': 'b'
+                    }
         for k in defaults:
             if k not in kwargs:
-                kwargs[k]=defaults[k]
+                kwargs[k] = defaults[k]
 
         if 'fig' in kwargs:
-            fig=kwargs['fig']
+            fig = kwargs['fig']
         else:
-            fig=plt.figure()
+            fig = plt.figure()
 
         if 'ax' in kwargs:
             ax = kwargs['ax']
         else:
             ax = fig.add_subplot(111)
 
-        if kwargs['typ']=='pr':
-            if kwargs['a']<>-1:
-                U = self.CmW[kwargs['f'],:,kwargs['a']]
+        if kwargs['typ'] == 'pr':
+            if kwargs['a'] <> -1:
+                U = self.CmW[kwargs['f'], :, kwargs['a']]
             else:
-                U = self.CmW[kwargs['f'],:,:].reshape(self.na*self.ng)
+                U = self.CmW[kwargs['f'], :, :].reshape(self.na * self.ng)
             if kwargs['db']:
-                U = 10*np.log10(U)
+                U = 10 * np.log10(U)
 
-        D = np.sqrt(np.sum((self.pa-self.pg)*(self.pa-self.pg),axis=0))
-        if kwargs['a']<>-1:
-            D = D.reshape(self.ng,self.na)
-            ax.semilogx(D[:,kwargs['a']],U,'.',color=kwargs['col'])
+        D = np.sqrt(np.sum((self.pa - self.pg) * (self.pa - self.pg), axis=0))
+        if kwargs['a'] <> -1:
+            D = D.reshape(self.ng, self.na)
+            ax.semilogx(D[:, kwargs['a']], U, '.', color=kwargs['col'])
         else:
-            ax.semilogx(D,U,'.',color=kwargs['col'])
+            ax.semilogx(D, U, '.', color=kwargs['col'])
 
-        return fig,ax
+        return fig, ax
 
-    def show(self,**kwargs):
+    def show(self, **kwargs):
         """ show coverage
 
         Parameters
@@ -789,22 +776,22 @@ class Coverage(PyLayers):
         pylayers.gis.layout.Layout.showG
 
         """
-        defaults = { 'typ': 'pr',
-                     'grid': False,
-                     'polar':'p',
-                     'f' : 0,
-                     'a' :-1,
-                     'db':True,
-                     'cmap' :cm.jet,
-                     'best':True,
-                     "noise":False
-                   }
+        defaults = {'typ': 'pr',
+                    'grid': False,
+                    'polar': 'p',
+                    'f': 0,
+                    'a': -1,
+                    'db': True,
+                    'cmap': cm.jet,
+                    'best': True,
+                    "noise": False
+                    }
 
-        title = self.dap[1].s.name+ ' : '
+        title = self.dap[1].s.name + ' : '
 
         for k in defaults:
             if k not in kwargs:
-                kwargs[k]=defaults[k]
+                kwargs[k] = defaults[k]
         polar = kwargs['polar']
 
         f = kwargs['f']
@@ -814,65 +801,65 @@ class Coverage(PyLayers):
         dB = kwargs['db']
         noise = kwargs['noise']
 
-        if typ=='sinr':
-            title = title + 'SINR : '+' fc = '+str(self.fGHz[f])+' GHz'+ ' polar : '+polar
+        if typ == 'sinr':
+            title = title + 'SINR : ' + ' fc = ' + str(self.fGHz[f]) + ' GHz' + ' polar : ' + polar
             if dB:
                 legcb = 'dB'
             else:
                 legcb = 'Linear scale'
-            if polar=='o':
+            if polar == 'o':
                 V = self.sinro
-            if polar=='p':
+            if polar == 'p':
                 V = self.sinrp
-        if typ=='snr':
-            title = title + 'SNR : '+' fc = '+str(self.fGHz[f])+' GHz'+ ' polar : '+polar
+        if typ == 'snr':
+            title = title + 'SNR : ' + ' fc = ' + str(self.fGHz[f]) + ' GHz' + ' polar : ' + polar
             if dB:
                 legcb = 'dB'
             else:
                 legcb = 'Linear scale'
-            if polar=='o':
+            if polar == 'o':
                 V = self.snro
-            if polar=='p':
+            if polar == 'p':
                 V = self.snrp
-        if typ=='capacity':
-            title = title + 'Capacity : '+' fc = '+str(self.fGHz[f])+' GHz'+ ' polar : '+polar
+        if typ == 'capacity':
+            title = title + 'Capacity : ' + ' fc = ' + str(self.fGHz[f]) + ' GHz' + ' polar : ' + polar
             legcb = 'Mbit/s'
-            if polar=='o':
-                V = self.bmhz.T[np.newaxis,:]*np.log(1+self.sinro)/np.log(2)
-            if polar=='p':
-                V = self.bmhz.T[np.newaxis,:]*np.log(1+self.sinrp)/np.log(2)
-        if typ=='pr':
-            title = title + 'Pr : '+' fc = '+str(self.fGHz[f])+' GHz'+ ' polar : '+polar
+            if polar == 'o':
+                V = self.bmhz.T[np.newaxis, :] * np.log(1 + self.sinro) / np.log(2)
+            if polar == 'p':
+                V = self.bmhz.T[np.newaxis, :] * np.log(1 + self.sinrp) / np.log(2)
+        if typ == 'pr':
+            title = title + 'Pr : ' + ' fc = ' + str(self.fGHz[f]) + ' GHz' + ' polar : ' + polar
             if dB:
                 legcb = 'dBm'
             else:
                 legcb = 'mW'
-            if polar=='o':
+            if polar == 'o':
                 V = self.CmWo
-            if polar=='p':
+            if polar == 'p':
                 V = self.CmWp
 
-        if typ=='loss':
-            title = title + 'Loss : '+' fc = '+str(self.fGHz[f])+' GHz'+ ' polar : '+polar
+        if typ == 'loss':
+            title = title + 'Loss : ' + ' fc = ' + str(self.fGHz[f]) + ' GHz' + ' polar : ' + polar
             if dB:
                 legcb = 'dB'
             else:
                 legcb = 'Linear scale'
-            if polar=='o':
-                V = self.Lwo*self.freespace
-            if polar=='p':
-                V = self.Lwp*self.freespace
+            if polar == 'o':
+                V = self.Lwo * self.freespace
+            if polar == 'p':
+                V = self.Lwp * self.freespace
 
         if a == -1:
-            V = np.max(V[f,:,:],axis=1)
+            V = np.max(V[f, :, :], axis=1)
         else:
-            V = V[f,:,a]
+            V = V[f, :, a]
 
         # reshaping the data on the grid
-        U = V.reshape((self.nx,self.ny)).T
+        U = V.reshape((self.nx, self.ny)).T
 
         if dB:
-            U = 10*np.log10(U)
+            U = 10 * np.log10(U)
 
         if noise:
             x = np.random.randn(U.shape[0], U.shape[1])
@@ -886,7 +873,8 @@ class Coverage(PyLayers):
 
         return U
 
-#    def showLoss(self,polar='o',**kwargs):
+
+# def showLoss(self,polar='o',**kwargs):
 #        """ show losses map
 #
 #        Parameters
@@ -957,4 +945,3 @@ class Coverage(PyLayers):
 
 if (__name__ == "__main__"):
     doctest.testmod()
-

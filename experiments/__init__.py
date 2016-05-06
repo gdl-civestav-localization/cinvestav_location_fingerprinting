@@ -11,6 +11,7 @@ def plot_cost(results, data_name, plot_label):
     plt.ylabel('Accuracy (m)', fontsize=30)
     plt.xlabel('Epoch', fontsize=30)
     plt.yscale('symlog')
+    plt.tick_params(axis='both', which='major', labelsize=20)
     plt.grid(True)
     for i in range(2, 5, 1):
 
@@ -49,7 +50,7 @@ def get_metrics(test_set_y, predicted_values, model_name):
 
 
 if __name__ == '__main__':
-    """
+
     seed = 40
     with open(os.path.join('experiments',  'experiment_results_' + str(seed)), 'rb') as f:
         results = cPickle.load(f)
@@ -89,12 +90,14 @@ if __name__ == '__main__':
         lst_error.append(euclidean_error.mean())
 
     plt.figure("Depth experiement")
-    plt.ylabel('Accuracy (m)', fontsize=20)
-    plt.xlabel('Layers', fontsize=20)
+    plt.ylabel('Accuracy (m)', fontsize=30)
+    plt.xlabel('Layers', fontsize=30)
     # plt.yscale('symlog')
     plt.grid(True)
 
     plt.xticks([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    plt.tick_params(axis='both', which='major', labelsize=20)
     plt.plot(lst_error, linewidth=5.0)
     plt.show()
     print lst_error
+    """

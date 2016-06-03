@@ -1,5 +1,6 @@
 import cPickle
 import os
+os.sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import theano.tensor as T
 import numpy
 
@@ -15,7 +16,7 @@ def run_experiments(models, seed, params):
     params['datasets'] = None
     results = [('params', params)]
     for model, name in models:
-        cpickle_name = name + '_regressor_RSSI20.save'
+        cpickle_name = name + 'cinvestav_testbed.save'
 
         lst_cost_test, lst_cost_valid, lst_cost_train = train(
             model=model,
@@ -56,7 +57,7 @@ def run_experiments(models, seed, params):
         #     predicted_values=predicted_values,
         #     model_name=name
         # )
-    with open(os.path.join('experiments',  'correction2_experiment_results_' + str(seed)), 'wb') as f:
+    with open(os.path.join('experiments',  'cinvestav_testbed_experiment_results_' + str(seed)), 'wb') as f:
         cPickle.dump(results, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
@@ -196,11 +197,11 @@ def run_depth_experiment():
     run_experiments(models=models, seed=seed, params=params)
 
 if __name__ == '__main__':
-    run_depth_experiment()
-    """
+    # run_depth_experiment()
+
     # for seed in range(20, 30, 1):
     for seed in range(50, 51, 1):
-        datasets = DatasetManager.read_dataset('dataset_simulation_20.csv', shared=True, seed=seed)
+        datasets = DatasetManager.read_dataset('cinvestav_testbed.csv', shared=True, seed=seed)
         train_set_x, train_set_y = datasets[0]
 
         n_in = train_set_x.get_value().shape[1]
@@ -242,10 +243,10 @@ if __name__ == '__main__':
         )
 
         models = [
-            (linear_regressor_model, 'Linear Regression'),
-            (mlp_model, 'DNN'),
-            (dbn_model, 'DBN'),
-            (gbrbm_dbn_model, 'GB-DBN')
+            (linear_regressor_model, 'Linear Regression')
+            # (mlp_model, 'DNN')
+            # (dbn_model, 'DBN'),
+            # (gbrbm_dbn_model, 'GB-DBN')
         ]
 
         params = {
@@ -253,12 +254,12 @@ if __name__ == '__main__':
             'annealing_learning_rate': 1,
             'l1_learning_rate': 0.001,
             'l2_learning_rate': 0.0001,
-            'n_epochs': 10000,
-            'batch_size': 600,
+            'n_epochs': 100,
+            'batch_size': 6,
             'pre_training_epochs': 50,
             'pre_train_lr': 0.001,
             'k': 1,
             'datasets': datasets
         }
         run_experiments(models=models, seed=seed, params=params)
-        """
+

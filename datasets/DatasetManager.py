@@ -17,7 +17,10 @@ def read_dataset(dataset_name="dataset_simulation_20.csv", shared=False, seed=No
     dataset = pd.read_csv(dataset_name, dtype=float, header=0, index_col=[0, "result_x", "result_y"]).values
 
     from sklearn import preprocessing
-    dataset = preprocessing.scale(dataset)
+    from preprocessing.dimensionality_reduction import get_pca
+    dataset, variance_ratio = get_pca(data=dataset, num_components=23)
+    dataset = preprocessing.normalize(dataset)
+    result = preprocessing.normalize(result)
     # Mean1 = dataset.mean(axis=0)
     # Std1 = dataset.std(axis=0)
     # print Mean1, Std1

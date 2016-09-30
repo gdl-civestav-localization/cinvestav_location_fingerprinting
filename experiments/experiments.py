@@ -243,18 +243,18 @@ if __name__ == '__main__':
         )
 
         models = [
-            (linear_regressor_model, 'Linear Regression')
-            # (mlp_model, 'DNN')
+            # (linear_regressor_model, 'Linear Regression')
+            (mlp_model, 'DNN')
             # (dbn_model, 'DBN'),
             # (gbrbm_dbn_model, 'GB-DBN')
         ]
 
         params = {
-            'learning_rate': 0.01,
-            'annealing_learning_rate': 1,
+            'learning_rate': 0.001,
+            'annealing_learning_rate': .99999,
             'l1_learning_rate': 0.001,
             'l2_learning_rate': 0.0001,
-            'n_epochs': 100,
+            'n_epochs': 1000,
             'batch_size': 6,
             'pre_training_epochs': 50,
             'pre_train_lr': 0.001,

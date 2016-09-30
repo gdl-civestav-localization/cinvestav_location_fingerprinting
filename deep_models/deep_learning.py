@@ -306,13 +306,13 @@ def train(
                     test_score = [test_model(i) for i in xrange(n_test_batches)]
                     test_score = numpy.mean(test_score)
 
-                    if 'pydevd' in sys.modules:
-                        print '  -epoch {}, minibatch {}/{}, test error of best model {}.'.format(
-                            epoch + 1,
-                            minibatch_index + 1,
-                            n_train_batches,
-                            test_score * 100.
-                        )
+                    # if 'pydevd' in sys.modules:
+                    print '  -epoch {}, minibatch {}/{}, test error of best model {}.'.format(
+                        epoch + 1,
+                        minibatch_index + 1,
+                        n_train_batches,
+                        test_score * 100.
+                    )
 
             # if patience <= iter:
                 # done_looping = True

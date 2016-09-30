@@ -18,7 +18,7 @@ def read_dataset(dataset_name="dataset_simulation_20.csv", shared=False, seed=No
 
     from sklearn import preprocessing
     from preprocessing.dimensionality_reduction import get_pca
-    dataset, variance_ratio = get_pca(data=dataset, num_components=23)
+    dataset, variance_ratio = get_pca(data=dataset, num_components=50)
     dataset = preprocessing.normalize(dataset)
     result = preprocessing.normalize(result)
     # Mean1 = dataset.mean(axis=0)

@@ -15,8 +15,12 @@ def plot(rssi_map, cover, best, figsize=(10, 8)):
         p = cover.dap[k]['p']
         ax.plot(p[0], p[1], 'or')
 
+
+    # rssi_map[rssi_map < -110] = -110
     vmin = rssi_map.min()
     vmax = rssi_map.max()
+    var = np.corrcoef(rssi_map)
+    print var
 
     l = cover.grid[0, 0]
     r = cover.grid[-1, 0]
@@ -27,8 +31,8 @@ def plot(rssi_map, cover, best, figsize=(10, 8)):
                     extent=(l, r, b, t),
                     origin='lower',
                     cmap='jet',
-                    vmin=vmin,
-                    vmax=vmax)
+                    vmin=-110,
+                    vmax=-30)
 
     # Put numbers
     for k in range(cover.na):

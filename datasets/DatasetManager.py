@@ -2,34 +2,187 @@ import pandas as pd
 import os
 import numpy as np
 import random
+from preprocessing.scaling import get_gaussian_normalization
+
 
 __author__ = 'Gibran Felix'
 
 
-def read_dataset(dataset_name="dataset_simulation_20.csv", shared=False, seed=None):
-    print '... loading data', dataset_name
+def get_prediction_set(
+        dataset_name="dataset.csv",
+        skipped_columns=[],
+        one_hot_encoding_columns_name=[],
+        label_encoding_columns_name=[],
+        mean=None,
+        std=None
+):
     dataset_name = os.path.join(os.path.dirname(__file__), "dataset", dataset_name)
 
-    # Only x and y columns
-    result = pd.read_csv(dataset_name, index_col=False, dtype=float, header=0, usecols=["result_x", "result_y"]).values
+    dataframe = pd.read_csv(
+        dataset_name,
+        index_col=False,
+        dtype=object,
+        header=0
+    )
 
-    # Skip x, y and row number columns
-    dataset = pd.read_csv(dataset_name, dtype=float, header=0, index_col=[0, "result_x", "result_y"]).values
+    # Skipped columns
+    skipped_columns.append(0)  # Panda index row
+    skipped_columns.extend(one_hot_encoding_columns_name)
+    skipped_columns.extend(label_encoding_columns_name)
 
-    from sklearn import preprocessing
-    from preprocessing.dimensionality_reduction import get_pca
-    dataset, variance_ratio = get_pca(data=dataset, num_components=50)
-    dataset = preprocessing.normalize(dataset)
-    result = preprocessing.normalize(result)
-    # Mean1 = dataset.mean(axis=0)
-    # Std1 = dataset.std(axis=0)
-    # print Mean1, Std1
+    # Get dataset
+    dataset = pd.read_csv(
+        dataset_name,
+        header=0,
+        dtype=object,
+        index_col=skipped_columns
+    ).fillna(0).values
 
-    return get_sets(dataset=dataset, result=result, train_ratio=.6,
-                    test_ratio=.2, valid_ratio=.2, shared=shared, seed=seed)
+    # One hot encoding
+    if len(one_hot_encoding_columns_name) > 0:
+        one_hot_encoding_data, one_hot_encoding_columns_name = one_hot_encoding(
+            panda_dataframe=dataframe,
+            column_names=one_hot_encoding_columns_name
+        )
+        dataset = np.concatenate(
+            (
+                dataset,
+                one_hot_encoding_data
+            ),
+            axis=1
+        )
+
+    # Label encoder
+    if len(label_encoding_columns_name) > 0:
+        label_encoding_data = label_encoder(
+            panda_dataframe=dataframe,
+            column_names=label_encoding_columns_name
+        )
+        dataset = np.concatenate(
+            (
+                dataset,
+                label_encoding_data
+            ),
+            axis=1
+        )
+
+    # To force the dataset to be numeric, throw error if is not completely numeric
+    dataset = dataset.astype(np.float32, copy=False)
+
+    # Normalized dataset
+    dataset, mean, std = get_gaussian_normalization(dataset, mean=mean, std=std)
+
+    return dataset
 
 
-def get_sets(dataset, result, train_ratio=.6, test_ratio=.2, valid_ratio=.2, shared=False, seed=None):
+def read_dataset(
+        dataset_name="dataset.csv",
+        shared=False,
+        seed=None,
+        expected_output=[],
+        skipped_columns=[],
+        one_hot_encoding_columns_name=[],
+        label_encoding_columns_name=[],
+        train_ratio=.6,
+        test_ratio=.2,
+        valid_ratio=.2,
+        task_type='regression'
+):
+    print '... loading data', dataset_name
+    dataframe = pd.read_csv(
+        dataset_name,
+        index_col=False,
+        dtype=object,
+        header=0
+    )
+
+    # Skipped columns
+    skipped_columns.append(0)  # Panda index row
+    skipped_columns.extend(expected_output)
+    skipped_columns.extend(one_hot_encoding_columns_name)
+    skipped_columns.extend(label_encoding_columns_name)
+
+    # Get dataset
+    dataset = pd.read_csv(
+        dataset_name,
+        header=0,
+        index_col=skipped_columns,
+        dtype=object
+    ).fillna(0).values
+
+    # Get expected values
+    result = dataframe.as_matrix(columns=expected_output)
+
+    # One hot encoding
+    if len(one_hot_encoding_columns_name) > 0:
+        one_hot_encoding_data, one_hot_encoding_columns_name = one_hot_encoding(
+            panda_dataframe=dataframe,
+            column_names=one_hot_encoding_columns_name
+        )
+        dataset = np.concatenate(
+            (
+                dataset,
+                one_hot_encoding_data
+            ),
+            axis=1
+        )
+
+    # Label encoder
+    if len(label_encoding_columns_name) > 0:
+        label_encoding_data = label_encoder(
+            panda_dataframe=dataframe,
+            column_names=label_encoding_columns_name
+        )
+        dataset = np.concatenate(
+            (
+                dataset,
+                label_encoding_data
+            ),
+            axis=1
+        )
+
+    # To force the dataset to be numeric, throw error if is not completely numeric
+    dataset = dataset.astype(np.float32, copy=False)
+    result = result.astype(np.float32, copy=False)
+
+    # Dimensional reduction
+    # from preprocessing.dimensionality_reduction import get_pca
+    # dataset, variance_ratio = get_pca(data=dataset, num_components=23)
+
+    # Normalized dataset
+    dataset, mean, std = get_gaussian_normalization(dataset)
+    # print mean, std
+
+    train_set, valid_set, test_set = get_sets(
+        dataset=dataset,
+        result=result,
+        train_ratio=train_ratio,
+        test_ratio=test_ratio,
+        valid_ratio=valid_ratio,
+        shared=shared,
+        seed=seed,
+        task_type=task_type
+    )
+
+    return {
+        'train_set': train_set,
+        'valid_set': valid_set,
+        'test_set': test_set,
+        'mean': mean,
+        'std': std
+    }
+
+
+def get_sets(
+        dataset,
+        result,
+        train_ratio=.6,
+        test_ratio=.2,
+        valid_ratio=.2,
+        shared=False,
+        seed=None,
+        task_type='regression'
+):
     if seed is not None:
         random.seed(seed)
     # Shuffle data
@@ -59,24 +212,27 @@ def get_sets(dataset, result, train_ratio=.6, test_ratio=.2, valid_ratio=.2, sha
     valid_set = np.array([x[0] for x in zip_valid_set]), np.array([d[1] for d in zip_valid_set])
 
     if shared:
-        test_set = shared_dataset(test_set)
-        valid_set = shared_dataset(valid_set)
-        train_set = shared_dataset(train_set)
+        test_set = shared_dataset(test_set, task_type=task_type)
+        valid_set = shared_dataset(valid_set, task_type=task_type)
+        train_set = shared_dataset(train_set, task_type=task_type)
 
     return train_set, valid_set, test_set
 
 
-def shared_dataset(data_xy, borrow=True):
+def shared_dataset(data_xy, borrow=True, task_type='regression'):
     import theano
     data_x, data_y = data_xy
     shared_x = theano.shared(
         np.asarray(
             data_x,
-            dtype=theano.config.floatX),
+            dtype=theano.config.floatX
+        ),
         borrow=borrow)
     shared_y = theano.shared(
-        np.asarray(data_y,
-                   dtype=theano.config.floatX),
+        np.asarray(
+            data_y,
+            dtype=theano.config.floatX
+        ),
         borrow=borrow)
     # When storing data on the GPU it has to be stored as floats
     # therefore we will store the labels as ``floatX`` as well
@@ -85,10 +241,57 @@ def shared_dataset(data_xy, borrow=True):
     # floats it doesn't make sense) therefore instead of returning
     # ``shared_y`` we will have to cast it to int. This little hack
     # lets ous get around this issue
-    return shared_x, shared_y
+    import theano.tensor as T
+
+    if task_type == 'regression':
+        return shared_x, shared_y
+    elif task_type == 'classification':
+        return shared_x, T.cast(shared_y, 'int32')
+
+
+def one_hot_encoding(panda_dataframe, column_names):
+    data = []
+    columns = []
+
+    for c in column_names:
+        column_data = panda_dataframe[c].fillna('missing').values
+        column_dataframe = pd.get_dummies(column_data)
+
+        new_column_data =column_dataframe.values
+        columns.extend(column_dataframe.columns)
+        data.append(new_column_data)
+    # Transform to matrix form
+    data = np.concatenate(
+        (
+            data
+        ),
+        axis=1
+    ).astype(np.float64)
+    return data, columns
+
+
+def label_encoder(panda_dataframe, column_names):
+    from sklearn import preprocessing
+
+    data = []
+    for c in column_names:
+        column_data = panda_dataframe[c].fillna('missing').values
+
+        encoder = preprocessing.LabelEncoder()
+        encoder.fit(column_data)
+        new_column_data = encoder.transform(column_data).reshape(-1, 1)
+        data.append(new_column_data)
+    # Transform to matrix form
+    data = np.concatenate(
+        (
+            data
+        ),
+        axis=1
+    ).astype(np.float64)
+    return data
 
 
 if __name__ == "__main__":
-    read_dataset(dataset_name="dataset_simulation_20.csv", shared=False)
-    read_dataset(dataset_name="dataset_simulation_20.csv", shared=True)
+    read_dataset(dataset_name="cleaned_dataset.csv", shared=False)
+    read_dataset(dataset_name="cleaned_dataset.csv", shared=True)
 

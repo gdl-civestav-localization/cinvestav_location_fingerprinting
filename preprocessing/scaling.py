@@ -27,15 +27,19 @@ def get_logistic_normalization(data):
     return data
 
 
-def get_gaussian_normalization(data):
+def get_gaussian_normalization(data, mean=None, std=None):
     """
     Perform a gaussian scaling
     Parameters
     ----------
     data: Values to transform
     """
-    data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
-    return data
+    if mean is None:
+        mean = np.mean(data, axis=0)
+    if std is None:
+        std = np.std(data, axis=0)
+    data = (data - mean) / std
+    return data, mean, std
 
 
 def get_linear_normalization(data):

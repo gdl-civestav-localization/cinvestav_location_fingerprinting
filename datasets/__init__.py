@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+from geopy.distance import vincenty
 
 __author__ = 'Gibran Felix'
 
@@ -75,7 +76,54 @@ def format_samples(log_folder='anyplace_labeled'):
     return samples
 
 
-def parse_anyplace_log_to_dataset(log_folder='anyplace_labeled', dataset_name='cinvestav', separator='\t', with_z_label=False):
+def normalize_coordinates(dataframe, dataset_name, separator=','):
+    x_min = dataframe['result_x'].min()
+    y_min = dataframe['result_y'].min()
+
+    def distance_x(x):
+        p1 = (x_min, y_min)
+        p2 = (x, y_min)
+        return vincenty(p1, p2).meters
+
+    def distance_y(y):
+        p1 = (x_min, y_min)
+        p2 = (x_min, y)
+        return vincenty(p1, p2).meters
+
+    # Calculate the distance in meters between x_min and x for all x
+    dataframe['result_x'] = dataframe.apply(
+        lambda x: distance_x(
+            x['result_x']
+        ),
+        axis=1
+    )
+
+    # Calculate the distance in meters between y_min and y for all y
+    dataframe['result_y'] = dataframe.apply(
+        lambda x: distance_y(
+            x['result_y']
+        ),
+        axis=1
+    )
+
+    # Normalize coordinates to zero mean values
+    x_mean = dataframe['result_x'].mean()
+    y_mean = dataframe['result_y'].mean()
+
+    dataframe['result_x'] = dataframe['result_x'] - x_mean
+    dataframe['result_y'] = dataframe['result_y'] - y_mean
+
+    # Save dataframe
+    dataset_name = os.path.join(os.path.dirname(__file__), 'dataset', dataset_name + '.csv')
+    dataframe.to_csv(dataset_name, sep=separator, encoding='utf-8')
+
+
+def parse_anyplace_log_to_dataset(
+        log_folder,
+        dataset_name,
+        separator=',',
+        with_z_label=False
+):
     # Format anyplace_labeled log files
     macs = np.loadtxt(
         fname='mac_filters/mac_filters',
@@ -115,10 +163,12 @@ def parse_anyplace_log_to_dataset(log_folder='anyplace_labeled', dataset_name='c
     if with_z_label:
         dataset_name += '_z'
 
-    dataset_name = os.path.join(os.path.dirname(__file__), 'dataset', dataset_name + '.csv')
-
-    df = pd.DataFrame(data=dataset, columns=columns)
-    df.to_csv(dataset_name, sep=separator, encoding='utf-8')
+    df = pd.DataFrame(data=dataset, columns=columns, dtype=np.float64)
+    normalize_coordinates(
+        dataframe=df,
+        separator=',',
+        dataset_name=dataset_name
+    )
 
 
 if __name__ == "__main__":

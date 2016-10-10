@@ -372,6 +372,8 @@ class RBM(object):
         :param pre_sigmoid_nv:
         """
 
+        rms_cost = T.mean(T.sum((self.input - pre_sigmoid_nv) ** 2, axis=1))
+        """
         cross_entropy = T.mean(
             T.sum(
                 self.input * T.log(T.nnet.sigmoid(pre_sigmoid_nv)) +
@@ -381,3 +383,5 @@ class RBM(object):
         )
 
         return cross_entropy
+        """
+        return rms_cost

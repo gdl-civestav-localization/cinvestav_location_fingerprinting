@@ -15,7 +15,7 @@ from models.regression.sklearn_models.rbf import RBF
 
 
 def sklearn_experiments():
-    dataset_name = 'cinvestav_testbed.csv'
+    dataset_name = 'cinvestav_labeled.csv'
     seed = 5
     datasets = DatasetManager.read_dataset(
         dataset_name=os.path.join(os.path.dirname(__file__), "dataset", dataset_name),
@@ -29,6 +29,18 @@ def sklearn_experiments():
         valid_ratio=0
     )
 
+    test_set = DatasetManager.get_prediction_set(
+        dataset_name=os.path.join(os.path.dirname(__file__), "dataset", 'cinvestav_labeled_test.csv'),
+        expected_output=['result_x', 'result_y'],
+        label_encoding_columns_name=[],
+        skipped_columns=[],
+        mean=datasets['mean'],
+        std=datasets['std'],
+        shared=False,
+        feature_selection=datasets['feature_selection']
+    )
+
+    # datasets['test_set'] = test_set
     datasets['prediction_set'] = datasets['test_set'][0]
 
     train_set_x, train_set_y = datasets['train_set']
@@ -44,13 +56,13 @@ def sklearn_experiments():
 
     # Create KNN
     knn = SklearnNetwork(
-        sklearn_model=KNeighborsRegressor(n_neighbors=3),
+        sklearn_model=KNeighborsRegressor(n_neighbors=5),
         num_output=n_out
     )
 
     # Create ada boosting
     ada_boosting = SklearnNetwork(
-        sklearn_model=GradientBoostingRegressor(n_estimators=100, learning_rate=.1, max_depth=5, loss='ls'),
+        sklearn_model=GradientBoostingRegressor(n_estimators=1000, learning_rate=.1, max_depth=5, loss='ls'),
         num_output=n_out
     )
 
@@ -72,7 +84,7 @@ def sklearn_experiments():
 
 
 def theano_experiments():
-    dataset_name = 'cinvestav_testbed.csv'
+    dataset_name = 'cinvestav_labeled.csv'
     seed = 5
     rgn = numpy.random.RandomState(seed)
 
@@ -88,6 +100,29 @@ def theano_experiments():
         valid_ratio=.2
     )
 
+    test_set = DatasetManager.get_prediction_set(
+        dataset_name=os.path.join(os.path.dirname(__file__), "dataset", 'cinvestav_labeled_test.csv'),
+        expected_output=['result_x', 'result_y'],
+        label_encoding_columns_name=[],
+        skipped_columns=[],
+        mean=datasets['mean'],
+        std=datasets['std'],
+        shared=True,
+        feature_selection=datasets['feature_selection']
+    )
+
+    dataset_unlabeled = DatasetManager.get_prediction_set(
+        dataset_name=os.path.join(os.path.dirname(__file__), "dataset", 'cinvestav_unlabeled.csv'),
+        skipped_columns=['result_x', 'result_y'],
+        label_encoding_columns_name=[],
+        mean=datasets['mean'],
+        std=datasets['std'],
+        shared=True,
+        feature_selection=datasets['feature_selection']
+    )
+
+    # datasets['test_set'] = test_set
+    datasets['dataset_unlabeled'] = dataset_unlabeled
     datasets['prediction_set'] = datasets['test_set'][0].get_value()
     train_set_x, train_set_y = datasets['train_set']
 
@@ -105,14 +140,15 @@ def theano_experiments():
     multilayer_perceptron = MLP(
         input=x,
         n_in=n_in,
-        hidden_layers_sizes=[100],
+        hidden_layers_sizes=[1000, 700, 500, 400, 300],
         n_out=n_out,
-        numpy_rng=rgn
+        numpy_rng=rgn,
+        activation_function=T.nnet.relu  # T.tanh
     )
 
     deep_belief_network = DBN(
         n_visible=n_in,
-        hidden_layers_sizes=[100],
+        hidden_layers_sizes=[100, 70, 50, 40, 30],
         n_out=n_out,
         numpy_rng=rgn,
         gaussian_visible=False
@@ -120,25 +156,25 @@ def theano_experiments():
 
     gaussian_deep_belief_network = DBN(
         n_visible=n_in,
-        hidden_layers_sizes=[100],
+        hidden_layers_sizes=[100, 70, 50, 40, 30],
         n_out=n_out,
         numpy_rng=rgn,
         gaussian_visible=True
     )
 
     models = [
+        ('Multilayer Perceptron', multilayer_perceptron),
         ('Linear Regression', linear_regression_model),
-        ('Deep Belief Network', deep_belief_network),
         ('Gaussian Deep Belief Network', gaussian_deep_belief_network),
-        ('Multilayer Perceptron', multilayer_perceptron)
+        ('Deep Belief Network', deep_belief_network)
     ]
 
     params = {
-        'learning_rate': .001,
-        'annealing_learning_rate': 1,
-        'l1_learning_rate': 0.001,
+        'learning_rate': .01,
+        'annealing_learning_rate': .9999,
+        'l1_learning_rate': 0.01,
         'l2_learning_rate': 0.001,
-        'n_epochs': 100,
+        'n_epochs': 500,
         'batch_size': 20,
         'pre_training_epochs': 50,
         'pre_train_lr': 0.001,
@@ -155,5 +191,6 @@ def theano_experiments():
 
 
 if __name__ == '__main__':
+    # sklearn_experiments()
     theano_experiments()
-    sklearn_experiments()
+

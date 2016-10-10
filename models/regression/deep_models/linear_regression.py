@@ -57,11 +57,8 @@ class LinearRegression(object):
 
         # parameters of the model
         self.params = [self.W, self.b]
-        self.L1 = 0
-        self.L2 = 0
-        for p in self.params:
-            self.L1 += T.sum(abs(p))
-            self.L2 += T.sum(p ** 2)
+        self.L1 = T.sum(abs(self.W))
+        self.L2 = T.sum(self.W ** 2)
 
     def __getstate__(self):
         if 'pydevd' in sys.modules:

@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy
 
 
 class SklearnNetwork:
@@ -7,7 +8,7 @@ class SklearnNetwork:
         self.result = []
         for i in xrange(num_output):
             clf = sklearn_model
-            self.machine.append(clf)
+            self.machine.append(deepcopy(clf))
 
     def train(self, x, y):
         result = zip(*y)
@@ -16,11 +17,11 @@ class SklearnNetwork:
 
     def test(self, dataset):
         self.result = []
-        for j in xrange(len(dataset)):
-            y = []
-            for i in xrange(len(self.machine)):
-                y.append(self.machine[i].predict(dataset[j])[0])
-            self.result.append(y)
+        y = []
+        for i in xrange(len(self.machine)):
+            y.append(self.machine[i].predict(dataset))
+
+        self.result = np.array(y).T
         return np.array(self.result)
 
     def cost_function(self, targets):

@@ -109,7 +109,7 @@ def cost_function(model, y):
             'y should have the same shape as self.y_pred',
             ('y', y.type, 'y_pred', model.output.type)
         )
-    return T.mean((model.output - y) ** 2)
+    return T.mean(.5 * (model.output - y) ** 2)
 
 
 def error_function(model, y):
@@ -126,7 +126,7 @@ def error_function(model, y):
             'y should have the same shape as self.y_pred',
             ('y', y.type, 'y_pred', model.output.type)
         )
-    return T.mean((model.output - y) ** 2)
+    return T.mean(.5 * (model.output - y) ** 2)
     # return T.mean(T.abs_(model.output - y))
 
 
@@ -278,9 +278,9 @@ def train(
                             test_score
                         )
 
-            if patience <= iter:
-                done_looping = True
-                break
+            # if patience <= iter:
+                # done_looping = True
+                # break
         epoch += 1
 
     end_time = timeit.default_timer()
@@ -324,7 +324,7 @@ def pre_train_model(model, datasets=None, batch_size=20, pre_training_epochs=10,
     """
 
     print '... getting the pre-training functions'
-    n_train_batches = datasets['train_set'][0].get_value(borrow=True).shape[0] / batch_size
+    n_train_batches = datasets['dataset_unlabeled'].get_value(borrow=True).shape[0] / batch_size
 
     pre_training_fns = model.pre_training_functions(
         datasets=datasets,
@@ -343,12 +343,12 @@ def pre_train_model(model, datasets=None, batch_size=20, pre_training_epochs=10,
                     index=batch_index,
                     lr=pre_train_lr
                 ))
-            if 'pydevd' in sys.modules:
-                print 'Pre-training layer {}, epoch {}, cost {}'.format(
-                    i,
-                    epoch,
-                    numpy.mean(c)
-                )
+            # if 'pydevd' in sys.modules:
+            print 'Pre-training layer {}, epoch {}, cost {}'.format(
+                i,
+                epoch,
+                numpy.mean(c)
+            )
 
     end_time = timeit.default_timer()
     print 'The pre-training code ran for {}m'.format(

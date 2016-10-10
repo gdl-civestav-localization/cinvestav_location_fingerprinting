@@ -3,6 +3,7 @@ import numpy
 import sys
 import theano
 import theano.tensor as T
+from theano.tensor.nnet import batch_normalization
 
 
 class LinearRegression(object):
@@ -12,7 +13,7 @@ class LinearRegression(object):
     and bias vector :math:`b`.
     """
 
-    def __init__(self, input, n_in, n_out, W=None, b=None):
+    def __init__(self, input, n_in, n_out, W=None, b=None, gamma=None, beta=None):
         """ Initialize the parameters of the linear regression
 
         :type input: theano.tensor.TensorType
@@ -49,14 +50,35 @@ class LinearRegression(object):
             )
         self.b = theano.shared(value=b_values, name='b', borrow=True)
 
+        gamma_val = gamma
+        if gamma is None:
+            gamma_val = numpy.ones((n_out,), dtype=theano.config.floatX)
+        self.gamma = theano.shared(value=gamma_val, name='gamma')
+
+        beta_val = beta
+        if beta is None:
+            beta_val = numpy.zeros((n_out,), dtype=theano.config.floatX)
+        self.beta = theano.shared(value=beta_val, name='beta')
+
         # keep track of model input
         self.input = input
 
+        # Linear regression.
+        linear = T.dot(self.input, self.W) + self.b
+        bn_output = batch_normalization(
+            inputs=linear,
+            gamma=self.gamma,
+            beta=self.beta,
+            mean=linear.mean((0,), keepdims=True),
+            std=T.ones_like(linear.var((0,), keepdims=True)),
+            mode='high_mem'
+        )
+
         # Output of the model
-        self.output = T.dot(self.input, self.W) + self.b  # Linear regression.
+        self.output = bn_output
 
         # parameters of the model
-        self.params = [self.W, self.b]
+        self.params = [self.W, self.b, self.gamma, self.beta]
         self.L1 = T.sum(abs(self.W))
         self.L2 = T.sum(self.W ** 2)
 
@@ -71,6 +93,8 @@ class LinearRegression(object):
         del state['L2']
         state['W'] = state['W'].get_value()
         state['b'] = state['b'].get_value()
+        state['gamma'] = state['gamma'].get_value()
+        state['beta'] = state['beta'].get_value()
         return state
 
     def __setstate__(self, state):
@@ -81,7 +105,9 @@ class LinearRegression(object):
             n_in=state['n_in'],
             n_out=state['n_out'],
             W=state['W'],
-            b=state['b']
+            b=state['b'],
+            gamma=state['gamma'],
+            beta=state['beta']
         )
         self.__dict__ = model.__dict__
 

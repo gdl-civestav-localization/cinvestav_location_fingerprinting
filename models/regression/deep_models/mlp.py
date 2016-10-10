@@ -23,13 +23,26 @@ import sys
 import theano
 import theano.tensor as T
 # from logistic_sgd import LogisticRegression
+from theano.tensor.nnet import batch_normalization
+
 from linear_regression import LinearRegression
 
 __docformat__ = 'restructedtext en'
 
 
 class HiddenLayer(object):
-    def __init__(self, rng, input, n_in, n_out, W=None, b=None, activation_function=T.tanh):
+    def __init__(
+            self,
+            rng,
+            input,
+            n_in,
+            n_out,
+            W=None,
+            b=None,
+            gamma=None,
+            beta=None,
+            activation_function=T.tanh
+    ):
         """
         Typical hidden layer of a MLP: units are fully-connected and have
         sigmoidal activation function. Weight matrix W is of shape (n_in,n_out)
@@ -73,24 +86,43 @@ class HiddenLayer(object):
             )
             if activation_function == theano.tensor.nnet.sigmoid:
                 W_values *= 4
-
-        W = theano.shared(value=W_values, name='W', borrow=True)
+        self.W = theano.shared(value=W_values, name='W', borrow=True)
 
         b_values = b
         if b is None:
             b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
-        b = theano.shared(value=b_values, name='b', borrow=True)
+        self.b = theano.shared(value=b_values, name='b', borrow=True)
 
-        self.W = W
-        self.b = b
+        gamma_val = gamma
+        if gamma is None:
+            gamma_val = numpy.ones((n_out,), dtype=theano.config.floatX)
+        self.gamma = theano.shared(value=gamma_val, name='gamma', borrow=True)
 
+        beta_val = beta
+        if beta is None:
+            beta_val = numpy.zeros((n_out,), dtype=theano.config.floatX)
+        self.beta = theano.shared(value=beta_val, name='beta', borrow=True)
+
+        # linear output
         lin_output = T.dot(input, self.W) + self.b
-        self.output = (
-            lin_output if activation_function is None
-            else activation_function(lin_output)
+
+        bn_output = batch_normalization(
+            inputs=lin_output,
+            gamma=self.gamma,
+            beta=self.beta,
+            mean=lin_output.mean((0,), keepdims=True),
+            std=lin_output.std((0,), keepdims=True),
+            mode='high_mem'
         )
+
+        if activation_function is None:
+            self.output = bn_output
+        elif activation_function == T.nnet.relu:
+            self.output = T.clip(bn_output, 0, 20)
+        else:
+            self.output = activation_function(bn_output)
         # parameters of the model
-        self.params = [self.W, self.b]
+        self.params = [self.W, self.b, self.gamma, self.beta]
 
 
 class MLP(object):
@@ -155,9 +187,14 @@ class MLP(object):
             # Set params W and b from params for hidden layer
             W_val = None
             b_val = None
+            gamma_val = None
+            beta_val = None
             if params is not None:
-                W_val = params[i * 2]
-                b_val = params[i * 2 + 1]
+                W_val = params[i * 4]
+                b_val = params[i * 4 + 1]
+                gamma_val = params[i * 4 + 2]
+                beta_val = params[i * 4 + 3]
+
             hiddenLayer = HiddenLayer(
                 rng=numpy_rng,
                 input=layer_input,
@@ -165,7 +202,9 @@ class MLP(object):
                 n_out=self.hidden_layers_sizes[i],
                 activation_function=activation_function,
                 W=W_val,
-                b=b_val
+                b=b_val,
+                gamma=gamma_val,
+                beta=beta_val
             )
 
             # add the layer to our list of layers
@@ -177,15 +216,21 @@ class MLP(object):
         # We now need to add top of the MLP
         W_val = None
         b_val = None
+        gamma_val = None
+        beta_val = None
         if params is not None:
-            W_val = params[-2]
-            b_val = params[-1]
+            W_val = params[-4]
+            b_val = params[-3]
+            gamma_val = params[-2]
+            beta_val = params[-1]
         self.outputLayer = LinearRegression(
             input=self.hidden_layers[-1].output,
             n_in=self.hidden_layers_sizes[-1],
             n_out=self.n_out,
             W=W_val,
-            b=b_val
+            b=b_val,
+            gamma=gamma_val,
+            beta=beta_val
         )
         self.params.extend(self.outputLayer.params)
 
@@ -194,7 +239,8 @@ class MLP(object):
 
         self.L1 = 0
         self.L2 = 0
-        for p in self.params:
+        for i in range(0, len(self.params), 4):
+            p = self.params[i]  # weights
             # L1 norm one regularization option is to enforce L1 norm to be small
             self.L1 += T.sum(abs(p))
             # square of L2 norm one regularization option is to enforce square of L2 norm to be small
@@ -210,10 +256,14 @@ class MLP(object):
         del state['L1']
         del state['hidden_layers']
         del state['outputLayer']
+
         if state['activation_function'] == theano.tensor.nnet.sigmoid:
-            state['activation_function'] == 'sigmoid'
+            state['activation_function'] = 'sigmoid'
+        elif state['activation_function'] == T.nnet.relu:
+            state['activation_function'] = 'relu'
         else:
-            state['activation_function'] == 'tanh'
+            state['activation_function'] = 'tanh'
+
         for i, val in enumerate(state['params']):
             state['params'][i] = val.get_value(borrow=True)
         return state
@@ -223,6 +273,8 @@ class MLP(object):
             print 'De-serializing ' + self.__class__.__name__
         if state['activation_function'] == 'sigmoid':
             activation_function = theano.tensor.nnet.sigmoid
+        elif state['activation_function'] == 'relu':
+            activation_function = theano.tensor.nnet.relu
         else:
             activation_function = T.tanh
 

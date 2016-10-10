@@ -1,20 +1,23 @@
 import pandas as pd
 import os
 import numpy as np
+import theano
 import random
 from preprocessing.scaling import get_gaussian_normalization
-
 
 __author__ = 'Gibran Felix'
 
 
 def get_prediction_set(
-        dataset_name="dataset.csv",
+        dataset_name,
         skipped_columns=[],
+        expected_output=[],
         one_hot_encoding_columns_name=[],
         label_encoding_columns_name=[],
         mean=None,
-        std=None
+        std=None,
+        shared=False,
+        feature_selection=None
 ):
     dataset_name = os.path.join(os.path.dirname(__file__), "dataset", dataset_name)
 
@@ -27,6 +30,7 @@ def get_prediction_set(
 
     # Skipped columns
     skipped_columns.append(0)  # Panda index row
+    skipped_columns.extend(expected_output)
     skipped_columns.extend(one_hot_encoding_columns_name)
     skipped_columns.extend(label_encoding_columns_name)
 
@@ -69,10 +73,36 @@ def get_prediction_set(
     # To force the dataset to be numeric, throw error if is not completely numeric
     dataset = dataset.astype(np.float32, copy=False)
 
+    dataset = feature_selection.transform(dataset)
+
     # Normalized dataset
     dataset, mean, std = get_gaussian_normalization(dataset, mean=mean, std=std)
 
-    return dataset
+    if shared:
+        dataset = theano.shared(
+            np.asarray(
+                dataset,
+                dtype=theano.config.floatX
+            ),
+            borrow=True
+        )
+
+    if len(expected_output) == 0:
+        return dataset
+    else:
+        # Get expected values
+        result = dataframe.as_matrix(columns=expected_output)
+        result = result.astype(np.float32, copy=False)
+        if shared:
+            result = theano.shared(
+                np.asarray(
+                    result,
+                    dtype=theano.config.floatX
+                ),
+                borrow=True
+            )
+
+        return dataset, result
 
 
 def read_dataset(
@@ -145,13 +175,12 @@ def read_dataset(
     dataset = dataset.astype(np.float32, copy=False)
     result = result.astype(np.float32, copy=False)
 
-    # Dimensional reduction
-    # from preprocessing.dimensionality_reduction import get_pca
-    # dataset, variance_ratio = get_pca(data=dataset, num_components=23)
+    from sklearn.feature_selection import VarianceThreshold
+    sel = VarianceThreshold(threshold=(.8 * (1 - .8)))
+    dataset = sel.fit_transform(dataset)
 
     # Normalized dataset
     dataset, mean, std = get_gaussian_normalization(dataset)
-    # print mean, std
 
     train_set, valid_set, test_set = get_sets(
         dataset=dataset,
@@ -169,7 +198,8 @@ def read_dataset(
         'valid_set': valid_set,
         'test_set': test_set,
         'mean': mean,
-        'std': std
+        'std': std,
+        'feature_selection': sel
     }
 
 
@@ -207,7 +237,7 @@ def get_sets(
     zip_valid_set = [zip_dataset[i[1]] for i in enumerate(valid_index)]
 
     # Get sets
-    train_set = np.array([x[0] for x in zip_train_set]), np.array([d[1]for d in zip_train_set])
+    train_set = np.array([x[0] for x in zip_train_set]), np.array([d[1] for d in zip_train_set])
     test_set = np.array([x[0] for x in zip_test_set]), np.array([d[1] for d in zip_test_set])
     valid_set = np.array([x[0] for x in zip_valid_set]), np.array([d[1] for d in zip_valid_set])
 
@@ -257,7 +287,7 @@ def one_hot_encoding(panda_dataframe, column_names):
         column_data = panda_dataframe[c].fillna('missing').values
         column_dataframe = pd.get_dummies(column_data)
 
-        new_column_data =column_dataframe.values
+        new_column_data = column_dataframe.values
         columns.extend(column_dataframe.columns)
         data.append(new_column_data)
     # Transform to matrix form
@@ -294,4 +324,3 @@ def label_encoder(panda_dataframe, column_names):
 if __name__ == "__main__":
     read_dataset(dataset_name="cleaned_dataset.csv", shared=False)
     read_dataset(dataset_name="cleaned_dataset.csv", shared=True)
-

@@ -77,8 +77,8 @@ def format_samples(log_folder='anyplace_labeled'):
 
 
 def normalize_coordinates(dataframe, dataset_name, separator=','):
-    x_min = dataframe['result_x'].min()
-    y_min = dataframe['result_y'].min()
+    x_min = 20.667327  # dataframe['result_x'].min()
+    y_min = -103.464568  # dataframe['result_y'].min()
 
     def distance_x(x):
         p1 = (x_min, y_min)
@@ -110,8 +110,8 @@ def normalize_coordinates(dataframe, dataset_name, separator=','):
     x_mean = dataframe['result_x'].mean()
     y_mean = dataframe['result_y'].mean()
 
-    dataframe['result_x'] = dataframe['result_x'] - x_mean
-    dataframe['result_y'] = dataframe['result_y'] - y_mean
+    dataframe['result_x'] = (dataframe['result_x'] - x_mean)
+    dataframe['result_y'] = (dataframe['result_y'] - y_mean)
 
     # Save dataframe
     dataset_name = os.path.join(os.path.dirname(__file__), 'dataset', dataset_name + '.csv')

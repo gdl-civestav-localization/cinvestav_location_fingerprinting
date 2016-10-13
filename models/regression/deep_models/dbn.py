@@ -90,9 +90,13 @@ class DBN(object):
             # Set params W and b from params for hidden layer
             W_val = None
             b_val = None
+            gamma_val = None
+            beta_val = None
             if params is not None:
-                W_val = params[i * 2]
-                b_val = params[i * 2 + 1]
+                W_val = params[i * 4]
+                b_val = params[i * 4 + 1]
+                gamma_val = params[i * 4 + 2]
+                beta_val = params[i * 4 + 3]
 
             sigmoid_layer = HiddenLayer(
                 rng=numpy_rng,
@@ -101,7 +105,9 @@ class DBN(object):
                 n_out=self.hidden_layers_sizes[i],
                 activation_function=T.nnet.sigmoid,
                 W=W_val,
-                b=b_val
+                b=b_val,
+                gamma=gamma_val,
+                beta=beta_val
             )
 
             # add the layer to our list of layers
@@ -135,15 +141,21 @@ class DBN(object):
         # We now need to add top of the MLP
         W_val = None
         b_val = None
+        gamma_val = None
+        beta_val = None
         if params is not None:
-            W_val = params[-2]
-            b_val = params[-1]
+            W_val = params[-4]
+            b_val = params[-3]
+            gamma_val = params[-2]
+            beta_val = params[-1]
         self.outputLayer = LinearRegression(
             input=self.sigmoid_layers[-1].output,
             n_in=self.hidden_layers_sizes[-1],
             n_out=self.n_out,
             W=W_val,
-            b=b_val
+            b=b_val,
+            gamma=gamma_val,
+            beta=beta_val
         )
         self.params.extend(self.outputLayer.params)
 

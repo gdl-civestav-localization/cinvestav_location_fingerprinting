@@ -95,8 +95,8 @@ def theano_experiments():
         expected_output=['result_x', 'result_y'],
         skipped_columns=[],
         label_encoding_columns_name=[],
-        train_ratio=.6,
-        test_ratio=.2,
+        train_ratio=.8,
+        test_ratio=0,
         valid_ratio=.2
     )
 
@@ -121,7 +121,7 @@ def theano_experiments():
         feature_selection=datasets['feature_selection']
     )
 
-    # datasets['test_set'] = test_set
+    datasets['test_set'] = test_set
     datasets['dataset_unlabeled'] = dataset_unlabeled
     datasets['prediction_set'] = datasets['test_set'][0].get_value()
     train_set_x, train_set_y = datasets['train_set']
@@ -163,10 +163,10 @@ def theano_experiments():
     )
 
     models = [
-        ('Multilayer Perceptron', multilayer_perceptron),
-        ('Linear Regression', linear_regression_model),
         ('Gaussian Deep Belief Network', gaussian_deep_belief_network),
-        ('Deep Belief Network', deep_belief_network)
+        ('Deep Belief Network', deep_belief_network),
+        ('Multilayer Perceptron', multilayer_perceptron),
+        ('Linear Regression', linear_regression_model)
     ]
 
     params = {

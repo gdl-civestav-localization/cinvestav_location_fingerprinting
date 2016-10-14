@@ -324,10 +324,11 @@ def pre_train_model(model, datasets=None, batch_size=20, pre_training_epochs=10,
     """
 
     print '... getting the pre-training functions'
-    n_train_batches = datasets['dataset_unlabeled'].get_value(borrow=True).shape[0] / batch_size
+    unlabeled_dataset = datasets['dataset_unlabeled']
+    n_train_batches = unlabeled_dataset.get_value(borrow=True).shape[0] / batch_size
 
     pre_training_fns = model.pre_training_functions(
-        datasets=datasets,
+        unlabeled_dataset=unlabeled_dataset,
         batch_size=batch_size,
         k=k
     )

@@ -199,7 +199,7 @@ class DBN(object):
         )
         self.__dict__ = dbn.__dict__
 
-    def pre_training_functions(self, datasets, batch_size, k=1):
+    def pre_training_functions(self, unlabeled_dataset, batch_size, k=1):
         """
         Generates a list of functions, for performing one step of
         gradient descent at a given layer. The function will require
@@ -207,8 +207,8 @@ class DBN(object):
         need to iterate, calling the corresponding function on all
         mini batch indexes.
 
-        :type datasets: Theano shred variable
-        :param datasets: Dataset with train, test and valid sets
+        :type unlabeled_dataset: Theano shred variable
+        :param unlabeled_dataset: Dataset with train set
 
         :type batch_size: int
         :param batch_size: size of a mini batch
@@ -216,7 +216,6 @@ class DBN(object):
         :type k: int
         :param k: number of Gibbs steps to do in CD-k / PCD-k
         """
-        train_set_x, train_set_y = datasets['train_set']
 
         # index to a [mini]batch
         index = T.lscalar('index')
@@ -238,7 +237,7 @@ class DBN(object):
                 outputs=cost,
                 updates=updates,
                 givens={
-                    self.input: train_set_x[batch_begin:batch_end]
+                    self.input: unlabeled_dataset[batch_begin:batch_end]
                 }
             )
             # append fn to the list of functions

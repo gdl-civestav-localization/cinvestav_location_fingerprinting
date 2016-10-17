@@ -22,10 +22,9 @@ import numpy
 import sys
 import theano
 import theano.tensor as T
-# from logistic_sgd import LogisticRegression
 from theano.tensor.nnet import batch_normalization
-
 from linear_regression import LinearRegression
+from theano.tensor.shared_randomstreams import RandomStreams
 
 __docformat__ = 'restructedtext en'
 
@@ -86,22 +85,30 @@ class HiddenLayer(object):
             )
             if activation_function == theano.tensor.nnet.sigmoid:
                 W_values *= 4
-        self.W = theano.shared(value=W_values, name='W', borrow=True)
+        if isinstance(W_values, numpy.ndarray):
+            W_values = theano.shared(value=W_values, name='W', borrow=True)
+        self.W = W_values
 
         b_values = b
         if b is None:
             b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
-        self.b = theano.shared(value=b_values, name='b', borrow=True)
+        if isinstance(b_values, numpy.ndarray):
+            b_values = theano.shared(value=b_values, name='b', borrow=True)
+        self.b = b_values
 
         gamma_val = gamma
         if gamma is None:
             gamma_val = numpy.ones((n_out,), dtype=theano.config.floatX)
-        self.gamma = theano.shared(value=gamma_val, name='gamma', borrow=True)
+        if isinstance(gamma_val, numpy.ndarray):
+            gamma_val = theano.shared(value=gamma_val, name='gamma', borrow=True)
+        self.gamma = gamma_val
 
         beta_val = beta
         if beta is None:
             beta_val = numpy.zeros((n_out,), dtype=theano.config.floatX)
-        self.beta = theano.shared(value=beta_val, name='beta', borrow=True)
+        if isinstance(beta_val, numpy.ndarray):
+            beta_val = theano.shared(value=beta_val, name='beta', borrow=True)
+        self.beta = beta_val
 
         # linear output
         lin_output = T.dot(input, self.W) + self.b
@@ -121,8 +128,49 @@ class HiddenLayer(object):
             self.output = T.clip(bn_output, 0, 20)
         else:
             self.output = activation_function(bn_output)
+
         # parameters of the model
         self.params = [self.W, self.b, self.gamma, self.beta]
+
+
+class DropoutHiddenLayer(HiddenLayer):
+    def __init__(
+            self,
+            rng,
+            input,
+            n_in,
+            n_out,
+            dropout_rate,
+            W=None,
+            b=None,
+            gamma=None,
+            beta=None,
+            activation_function=T.tanh
+    ):
+        super(DropoutHiddenLayer, self).__init__(
+            rng=rng,
+            input=input,
+            n_in=n_in,
+            n_out=n_out,
+            W=W,
+            b=b,
+            gamma=gamma,
+            beta=beta,
+            activation_function=activation_function
+        )
+        theano_rng = RandomStreams(rng.randint(2 ** 30))
+
+        mask = theano_rng.binomial(
+            n=1,
+            p=1 - dropout_rate,
+            size=self.output.shape,
+            dtype=theano.config.floatX
+        )
+        # The cast is important because
+        # int * float32 = float64 which pulls things off the gpu
+        dropout_output = self.output * T.cast(mask, theano.config.floatX)
+
+        self.output = dropout_output
 
 
 class MLP(object):
@@ -135,7 +183,17 @@ class MLP(object):
     top layer is a softmax layer (LogisticRegression) or linear regression layer.
     """
 
-    def __init__(self, numpy_rng, input, n_in=784, hidden_layers_sizes=None, n_out=1, activation_function=T.tanh, params=None):
+    def __init__(
+            self,
+            numpy_rng,
+            input,
+            n_in=784,
+            hidden_layers_sizes=None,
+            n_out=1,
+            dropout_rate=None,
+            activation_function=T.tanh,
+            params=None
+    ):
         """Initialize the parameters for the deep multilayer perceptron
 
         :type numpy_rng: numpy.random.RandomState
@@ -165,6 +223,7 @@ class MLP(object):
         self.activation_function = activation_function
 
         self.hidden_layers = []
+        self.drop_hidden_layers = []
         self.params = []
         self.n_layers = len(self.hidden_layers_sizes)
 
@@ -181,8 +240,11 @@ class MLP(object):
 
             if i == 0:
                 layer_input = self.input
+                drop_layer_input = self.input
             else:
                 layer_input = self.hidden_layers[-1].output
+                if dropout_rate is not None:
+                    drop_layer_input = self.drop_hidden_layers[-1].output
 
             # Set params W and b from params for hidden layer
             W_val = None
@@ -195,7 +257,7 @@ class MLP(object):
                 gamma_val = params[i * 4 + 2]
                 beta_val = params[i * 4 + 3]
 
-            hiddenLayer = HiddenLayer(
+            hidden_layer = HiddenLayer(
                 rng=numpy_rng,
                 input=layer_input,
                 n_in=input_size,
@@ -206,12 +268,25 @@ class MLP(object):
                 gamma=gamma_val,
                 beta=beta_val
             )
+            self.hidden_layers.append(hidden_layer)
 
-            # add the layer to our list of layers
-            self.hidden_layers.append(hiddenLayer)
+            if dropout_rate is not None:
+                drop_hidden_layer = DropoutHiddenLayer(
+                    rng=numpy_rng,
+                    input=drop_layer_input,
+                    n_in=input_size,
+                    n_out=self.hidden_layers_sizes[i],
+                    activation_function=activation_function,
+                    W=hidden_layer.W / (1 - dropout_rate),
+                    b=hidden_layer.b,
+                    gamma=hidden_layer.gamma,
+                    beta=hidden_layer.beta,
+                    dropout_rate=dropout_rate
+                )
+                self.drop_hidden_layers.append(drop_hidden_layer)
 
             # add parameter of hidden layer to params
-            self.params.extend(hiddenLayer.params)
+            self.params.extend(hidden_layer.params)
 
         # We now need to add top of the MLP
         W_val = None
@@ -223,7 +298,7 @@ class MLP(object):
             b_val = params[-3]
             gamma_val = params[-2]
             beta_val = params[-1]
-        self.outputLayer = LinearRegression(
+        linear_regression = LinearRegression(
             input=self.hidden_layers[-1].output,
             n_in=self.hidden_layers_sizes[-1],
             n_out=self.n_out,
@@ -232,10 +307,26 @@ class MLP(object):
             gamma=gamma_val,
             beta=beta_val
         )
+        self.outputLayer = linear_regression
+
+        if dropout_rate is not None:
+            drop_linear_regression = LinearRegression(
+                input=self.drop_hidden_layers[-1].output,
+                n_in=self.hidden_layers_sizes[-1],
+                n_out=self.n_out,
+                W=linear_regression.W / (1 - dropout_rate),
+                b=linear_regression.b,
+                gamma=linear_regression.gamma,
+                beta=linear_regression.beta,
+            )
+            self.drop_output_layer = drop_linear_regression
+
         self.params.extend(self.outputLayer.params)
 
         # Output of the model
         self.output = self.outputLayer.output
+        if dropout_rate is not None:
+            self.drop_output = self.drop_output_layer.output
 
         self.L1 = 0
         self.L2 = 0
@@ -250,12 +341,15 @@ class MLP(object):
         if 'pydevd' in sys.modules:
             print 'Serializing ' + self.__class__.__name__
         state = copy.deepcopy(self.__dict__)
-        del state['output']
         del state['input']
         del state['L2']
         del state['L1']
         del state['hidden_layers']
+        del state['drop_hidden_layers']
+        del state['output']
+        del state['drop_output']
         del state['outputLayer']
+        del state['drop_output_layer']
 
         if state['activation_function'] == theano.tensor.nnet.sigmoid:
             state['activation_function'] = 'sigmoid'
@@ -285,6 +379,7 @@ class MLP(object):
             hidden_layers_sizes=state['hidden_layers_sizes'],
             n_out=state['n_out'],
             params=state['params'],
+            dropout_rate=state['dropout_rate'],
             activation_function=activation_function
         )
         self.__dict__ = mlp.__dict__

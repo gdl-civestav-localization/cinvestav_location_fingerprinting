@@ -178,10 +178,12 @@ class RBM(object):
 
         pre_sigmoid_h1, h1_mean = self.propup(v0_sample)
 
-        h1_sample = self.theano_rng.binomial(size=h1_mean.shape,
-                                             n=1,
-                                             p=h1_mean,
-                                             dtype=theano.config.floatX)
+        h1_sample = self.theano_rng.binomial(
+            size=h1_mean.shape,
+            n=1,
+            p=h1_mean,
+            dtype=theano.config.floatX
+        )
 
         return [pre_sigmoid_h1, h1_mean, h1_sample]
 

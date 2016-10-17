@@ -143,6 +143,7 @@ def theano_experiments():
         hidden_layers_sizes=[1000, 700, 500, 400, 300],
         n_out=n_out,
         numpy_rng=rgn,
+        dropout_rate=.5,
         activation_function=T.nnet.relu  # T.tanh
     )
 
@@ -163,10 +164,10 @@ def theano_experiments():
     )
 
     models = [
-        ('Gaussian Deep Belief Network', gaussian_deep_belief_network),
-        ('Deep Belief Network', deep_belief_network),
         ('Multilayer Perceptron', multilayer_perceptron),
-        ('Linear Regression', linear_regression_model)
+        ('Linear Regression', linear_regression_model),
+        ('Gaussian Deep Belief Network', gaussian_deep_belief_network),
+        ('Deep Belief Network', deep_belief_network)
     ]
 
     params = {
@@ -174,7 +175,7 @@ def theano_experiments():
         'annealing_learning_rate': .9999,
         'l1_learning_rate': 0.01,
         'l2_learning_rate': 0.001,
-        'n_epochs': 500,
+        'n_epochs': 100,
         'batch_size': 20,
         'pre_training_epochs': 50,
         'pre_train_lr': 0.001,

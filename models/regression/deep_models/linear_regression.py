@@ -39,26 +39,30 @@ class LinearRegression(object):
                 (n_in, n_out),
                 dtype=theano.config.floatX
             )
-        self.W = theano.shared(value=W_values, name='W', borrow=True)
+        if isinstance(W_values, numpy.ndarray):
+            W_values = theano.shared(value=W_values, name='W', borrow=True)
+        self.W = W_values
 
-        # initialize the biases b as a vector of n_out 0s
         b_values = b
         if b is None:
-            b_values = numpy.zeros(
-                (n_out,),
-                dtype=theano.config.floatX
-            )
-        self.b = theano.shared(value=b_values, name='b', borrow=True)
+            b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
+        if isinstance(b_values, numpy.ndarray):
+            b_values = theano.shared(value=b_values, name='b', borrow=True)
+        self.b = b_values
 
         gamma_val = gamma
         if gamma is None:
             gamma_val = numpy.ones((n_out,), dtype=theano.config.floatX)
-        self.gamma = theano.shared(value=gamma_val, name='gamma')
+        if isinstance(gamma_val, numpy.ndarray):
+            gamma_val = theano.shared(value=gamma_val, name='gamma', borrow=True)
+        self.gamma = gamma_val
 
         beta_val = beta
         if beta is None:
             beta_val = numpy.zeros((n_out,), dtype=theano.config.floatX)
-        self.beta = theano.shared(value=beta_val, name='beta')
+        if isinstance(beta_val, numpy.ndarray):
+            beta_val = theano.shared(value=beta_val, name='beta', borrow=True)
+        self.beta = beta_val
 
         # keep track of model input
         self.input = input

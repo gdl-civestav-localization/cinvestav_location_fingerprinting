@@ -9,7 +9,7 @@ import sys
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
-from utils import tile_raster_images, load_data
+from utils import tile_raster_images
 from rbm import RBM
 
 try:

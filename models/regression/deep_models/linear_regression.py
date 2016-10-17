@@ -39,30 +39,22 @@ class LinearRegression(object):
                 (n_in, n_out),
                 dtype=theano.config.floatX
             )
-        if isinstance(W_values, numpy.ndarray):
-            W_values = theano.shared(value=W_values, name='W', borrow=True)
-        self.W = W_values
+        self.W = theano.shared(value=W_values, name='W', borrow=True)
 
         b_values = b
         if b is None:
             b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
-        if isinstance(b_values, numpy.ndarray):
-            b_values = theano.shared(value=b_values, name='b', borrow=True)
-        self.b = b_values
+        self.b = theano.shared(value=b_values, name='b', borrow=True)
 
         gamma_val = gamma
         if gamma is None:
             gamma_val = numpy.ones((n_out,), dtype=theano.config.floatX)
-        if isinstance(gamma_val, numpy.ndarray):
-            gamma_val = theano.shared(value=gamma_val, name='gamma', borrow=True)
-        self.gamma = gamma_val
+        self.gamma = theano.shared(value=gamma_val, name='gamma', borrow=True)
 
         beta_val = beta
         if beta is None:
             beta_val = numpy.zeros((n_out,), dtype=theano.config.floatX)
-        if isinstance(beta_val, numpy.ndarray):
-            beta_val = theano.shared(value=beta_val, name='beta', borrow=True)
-        self.beta = beta_val
+        self.beta = theano.shared(value=beta_val, name='beta', borrow=True)
 
         # keep track of model input
         self.input = input

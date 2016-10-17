@@ -109,7 +109,13 @@ def cost_function(model, y):
             'y should have the same shape as self.y_pred',
             ('y', y.type, 'y_pred', model.output.type)
         )
-    return T.mean(.5 * (model.output - y) ** 2)
+
+    if hasattr(model, 'drop_output') and model.drop_output is not None:
+        print "Drop"
+        return T.mean(.5 * (model.drop_output - y) ** 2)
+    else:
+        print "NOrmal"
+        return T.mean(.5 * (model.output - y) ** 2)
 
 
 def error_function(model, y):

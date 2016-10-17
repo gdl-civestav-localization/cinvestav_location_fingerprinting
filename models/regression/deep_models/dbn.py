@@ -5,10 +5,10 @@ import theano
 import theano.tensor as T
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 
-from grbm import GBRBM
-from linear_regression import LinearRegression
-from mlp import HiddenLayer
-from rbm import RBM
+from models.regression.deep_models.grbm import GBRBM
+from models.regression.deep_models.linear_regression import LinearRegression
+from models.regression.deep_models.hidden_layers import HiddenLayer
+from models.regression.deep_models.rbm import RBM
 
 
 class DBN(object):

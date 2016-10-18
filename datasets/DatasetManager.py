@@ -14,10 +14,9 @@ def get_prediction_set(
         expected_output=[],
         one_hot_encoding_columns_name=[],
         label_encoding_columns_name=[],
-        mean=None,
-        std=None,
-        shared=False,
-        feature_selection=None
+        sklearn_preprocessing=None,
+        sklearn_feature_selection=None,
+        shared=False
 ):
     dataset_name = os.path.join(os.path.dirname(__file__), "dataset", dataset_name)
 
@@ -73,10 +72,12 @@ def get_prediction_set(
     # To force the dataset to be numeric, throw error if is not completely numeric
     dataset = dataset.astype(np.float32, copy=False)
 
-    dataset = feature_selection.transform(dataset)
+    if sklearn_feature_selection is not None:
+        dataset = sklearn_feature_selection.transform(dataset)
 
     # Normalized dataset
-    dataset, mean, std = get_gaussian_normalization(dataset, mean=mean, std=std)
+    if sklearn_preprocessing is not None:
+        dataset = sklearn_preprocessing.transform(dataset)
 
     if shared:
         dataset = theano.shared(
@@ -113,6 +114,8 @@ def read_dataset(
         skipped_columns=[],
         one_hot_encoding_columns_name=[],
         label_encoding_columns_name=[],
+        sklearn_preprocessing=None,
+        sklearn_feature_selection=None,
         train_ratio=.6,
         test_ratio=.2,
         valid_ratio=.2,
@@ -175,12 +178,12 @@ def read_dataset(
     dataset = dataset.astype(np.float32, copy=False)
     result = result.astype(np.float32, copy=False)
 
-    from sklearn.feature_selection import VarianceThreshold
-    sel = VarianceThreshold(threshold=(.8 * (1 - .8)))
-    dataset = sel.fit_transform(dataset)
+    if sklearn_feature_selection is not None:
+        dataset = sklearn_feature_selection.fit_transform(dataset)
 
     # Normalized dataset
-    dataset, mean, std = get_gaussian_normalization(dataset)
+    if sklearn_preprocessing is not None:
+        dataset = sklearn_preprocessing.fit_transform(dataset)
 
     train_set, valid_set, test_set = get_sets(
         dataset=dataset,
@@ -197,9 +200,8 @@ def read_dataset(
         'train_set': train_set,
         'valid_set': valid_set,
         'test_set': test_set,
-        'mean': mean,
-        'std': std,
-        'feature_selection': sel
+        'sklearn_preprocessing': sklearn_preprocessing,
+        'sklearn_feature_selection': sklearn_feature_selection
     }
 
 

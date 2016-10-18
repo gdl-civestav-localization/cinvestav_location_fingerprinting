@@ -9,11 +9,123 @@ image from a set of samples or weights.
 import numpy
 import gzip
 import os
-import theano
 import cPickle
 import math
 
-os.sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import theano
+import theano.tensor as T
+import theano.sandbox.rng_mrg as RNG_MRG
+
+
+theano_random = RNG_MRG.MRG_RandomStreams(seed=23455)
+
+
+def dropout(input, noise_level=0.5, mrg=None, rescale=True):
+    """
+    This is the dropout function.
+    Parameters
+    ----------
+    input : tensor
+        Tensor to apply dropout to.
+    corruption_level : float
+        Probability level for dropping an element (used in binomial distribution).
+    mrg : random
+        Random number generator with a .binomial method.
+    rescale : bool
+        Whether to rescale the output after dropout.
+    Returns
+    -------
+    tensor
+        Tensor with dropout applied.
+    """
+    if mrg is None:
+        mrg = theano_random
+
+    print "DropOUt"
+
+    keep_probability = 1 - noise_level
+    mask = mrg.binomial(p=keep_probability, n=1, size=input.shape, dtype=theano.config.floatX)
+
+    output = (input * mask)
+
+    if rescale:
+        output /= keep_probability
+
+    return output
+
+
+def add_gaussian(input, noise_level=1, mrg=None):
+    """
+    This takes an input tensor and adds Gaussian noise to its elements with mean zero and provided standard deviation.
+    Parameters
+    ----------
+    input : tensor
+        Tensor to add Gaussian noise to.
+    noise_level : float
+        Standard deviation to use.
+    mrg : random
+        Random number generator with a .normal method.
+    Returns
+    -------
+    tensor
+        Tensor with Gaussian noise added.
+    """
+    if mrg is None:
+        mrg = theano_random
+
+    noise = mrg.normal(avg=0, std=noise_level, size=input.shape, dtype=theano.config.floatX)
+    output = input + noise
+    return output
+
+
+def add_uniform(input, noise_level, mrg=None):
+    """
+    This takes an intput tensor and adds noise drawn from a Uniform distribution from +- interval.
+    Parameters
+    ----------
+    input : tensor
+        Tensor to add uniform noise to.
+    noise_level : float
+        Range for noise to be drawn from (+- interval).
+    mrg : random
+        Random number generator with a .uniform method.
+    Returns
+    -------
+    tensor
+        Tensor with uniform noise added.
+    """
+    if mrg is None:
+        mrg = theano_random
+
+    noise = mrg.uniform(low=-noise_level, high=noise_level, size=input.shape, dtype=theano.config.floatX)
+    output = input + noise
+    return output
+
+
+def salt_and_pepper(input, noise_level=0.2, mrg=None):
+    """
+    This applies salt and pepper noise to the input tensor - randomly setting bits to 1 or 0.
+    Parameters
+    ----------
+    input : tensor
+        The tensor to apply salt and pepper noise to.
+    noise_level : float
+        The amount of salt and pepper noise to add.
+    mrg : random
+        Random number generator with .binomial method.
+    Returns
+    -------
+    tensor
+        Tensor with salt and pepper noise applied.
+    """
+    if mrg is None:
+        mrg = theano_random
+
+    a = mrg.binomial(size=input.shape, n=1, p=(1 - noise_level), dtype=theano.config.floatX)
+    b = mrg.binomial(size=input.shape, n=1, p=0.5, dtype=theano.config.floatX)
+    c = T.eq(a, 0) * b
+    return input * a + c
 
 
 def scale_to_unit_interval(ndar, eps=1e-8):

@@ -6,6 +6,7 @@ import sys
 import theano
 import theano.tensor as T
 import numpy
+import utils
 
 
 def train_functions(model, datasets, batch_size, learning_rate, annealing_learning_rate,
@@ -88,7 +89,12 @@ def train_functions(model, datasets, batch_size, learning_rate, annealing_learni
         outputs=loss_function,
         updates=updates,
         givens={
-            model.input: train_set_x[index * batch_size: (index + 1) * batch_size],
+            model.input: utils.dropout(
+                utils.add_gaussian(
+                    input=train_set_x[index * batch_size: (index + 1) * batch_size],
+                    noise_level=2
+                )
+            ),
             y: train_set_y[index * batch_size: (index + 1) * batch_size]
         }
     )
@@ -250,13 +256,13 @@ def train(
                 validation_losses = [validate_model(i) for i in xrange(n_valid_batches)]
                 validation_losses = numpy.mean(validation_losses) * 100.
 
-                if 'pydevd' in sys.modules:
-                    print 'epoch {}, minibatch {}/{}, validation error {}.'.format(
-                        epoch,
-                        minibatch_index + 1,
-                        n_train_batches,
-                        validation_losses
-                    )
+                # if 'pydevd' in sys.modules:
+                print 'epoch {}, minibatch {}/{}, validation error {}.'.format(
+                    epoch,
+                    minibatch_index + 1,
+                    n_train_batches,
+                    validation_losses
+                )
 
                 # if we got the best validation score until now
                 if validation_losses < best_validation_loss:

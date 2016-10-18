@@ -93,8 +93,8 @@ class HiddenLayer(object):
             inputs=lin_output,
             gamma=self.gamma,
             beta=self.beta,
-            mean=lin_output.mean((0,), keepdims=True),
-            std=lin_output.std((0,), keepdims=True),
+            mean=lin_output.mean(),
+            std=lin_output.std(),
             mode='high_mem'
         )
 

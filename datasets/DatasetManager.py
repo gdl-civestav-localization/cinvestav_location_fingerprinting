@@ -38,9 +38,9 @@ def get_prediction_set(
     dataset = pd.read_csv(
         dataset_name,
         header=0,
-        dtype=object,
+        dtype=np.float32,
         index_col=skipped_columns
-    ).fillna(0).values
+    ).fillna(-110).replace([0], [-110]).values
 
     # One hot encoding
     if len(one_hot_encoding_columns_name) > 0:
@@ -137,8 +137,8 @@ def read_dataset(
         dataset_name,
         header=0,
         index_col=skipped_columns,
-        dtype=object
-    ).fillna(0).values
+        dtype=np.float32
+    ).fillna(-110).replace([0], [-110]).values
 
     # Get expected values
     result = dataframe.as_matrix(columns=expected_output)

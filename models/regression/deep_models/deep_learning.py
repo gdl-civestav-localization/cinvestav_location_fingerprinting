@@ -62,7 +62,9 @@ def train_functions(model, datasets, batch_size, learning_rate, annealing_learni
 
     # the cost we minimize during training is the model cost of plus the regularization terms (L1 and L2)
     loss_function = (
-        cost_function(model, y) + l1_learning_rate * model.L1 + l2_learning_rate * model.L2
+        cost_function(model, y)
+        + l1_learning_rate * model.L1
+        + l2_learning_rate * model.L2
     )
 
     # compute the gradient of cost with respect params
@@ -89,15 +91,11 @@ def train_functions(model, datasets, batch_size, learning_rate, annealing_learni
         outputs=loss_function,
         updates=updates,
         givens={
-            model.input: utils.dropout(
-                utils.add_gaussian(
-                    input=train_set_x[index * batch_size: (index + 1) * batch_size],
-                    noise_level=2
-                )
-            ),
+            model.input: train_set_x[index * batch_size: (index + 1) * batch_size],
             y: train_set_y[index * batch_size: (index + 1) * batch_size]
         }
     )
+    # theano.printing.pydotprint(train_model, outfile="s.png", var_with_name_simple=True)
     return train_model, test_model, validate_model
 
 
@@ -244,12 +242,13 @@ def train(
     start_time = timeit.default_timer()
 
     while (epoch < n_epochs) and (not done_looping):
+        epoch = epoch + 1
         for minibatch_index in xrange(n_train_batches):
             mini_batch_avg_cost = train_model(minibatch_index)
             # print mini_batch_avg_cost
 
             # iteration number
-            iter = epoch * n_train_batches + minibatch_index
+            iter = (epoch - 1) * n_train_batches + minibatch_index
 
             if (iter + 1) % validation_frequency == 0:
                 # compute zero-one loss on validation set
@@ -290,10 +289,9 @@ def train(
                             test_score
                         )
 
-            # if patience <= iter:
-                # done_looping = True
-                # break
-        epoch += 1
+            if patience <= iter:
+                done_looping = True
+                break
 
     end_time = timeit.default_timer()
     print 'Optimization complete. \nBest validation score {} obtained at epoch {}, \n' \

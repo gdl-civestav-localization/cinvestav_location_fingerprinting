@@ -11,6 +11,8 @@ from datasets import DatasetManager
 from models.regression.sklearn_models.sklearn_network import SklearnNetwork
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn import preprocessing
+from sklearn.feature_selection import VarianceThreshold
 from models.regression.sklearn_models.rbf import RBF
 
 
@@ -24,6 +26,8 @@ def sklearn_experiments():
         expected_output=['result_x', 'result_y'],
         skipped_columns=[],
         label_encoding_columns_name=[],
+        sklearn_preprocessing=preprocessing.StandardScaler(with_mean=True, with_std=True),
+        sklearn_feature_selection=VarianceThreshold(threshold=(.8 * (1 - .8))),
         train_ratio=1,
         test_ratio=0,
         valid_ratio=0
@@ -34,10 +38,9 @@ def sklearn_experiments():
         expected_output=['result_x', 'result_y'],
         label_encoding_columns_name=[],
         skipped_columns=[],
-        mean=datasets['mean'],
-        std=datasets['std'],
         shared=False,
-        feature_selection=datasets['feature_selection']
+        sklearn_preprocessing=datasets['sklearn_preprocessing'],
+        sklearn_feature_selection=datasets['sklearn_feature_selection'],
     )
 
     datasets['test_set'] = test_set
@@ -95,8 +98,10 @@ def theano_experiments():
         expected_output=['result_x', 'result_y'],
         skipped_columns=[],
         label_encoding_columns_name=[],
-        train_ratio=.6,
-        test_ratio=.2,
+        sklearn_preprocessing=preprocessing.StandardScaler(with_mean=True, with_std=True),
+        sklearn_feature_selection=VarianceThreshold(threshold=(.8 * (1 - .8))),
+        train_ratio=.8,
+        test_ratio=0,
         valid_ratio=.2
     )
 
@@ -105,20 +110,18 @@ def theano_experiments():
         expected_output=['result_x', 'result_y'],
         label_encoding_columns_name=[],
         skipped_columns=[],
-        mean=datasets['mean'],
-        std=datasets['std'],
-        shared=True,
-        feature_selection=datasets['feature_selection']
+        sklearn_preprocessing=datasets['sklearn_preprocessing'],
+        sklearn_feature_selection=datasets['sklearn_feature_selection'],
+        shared=True
     )
 
     dataset_unlabeled = DatasetManager.get_prediction_set(
         dataset_name=os.path.join(os.path.dirname(__file__), "dataset", 'cinvestav_unlabeled.csv'),
         skipped_columns=['result_x', 'result_y'],
         label_encoding_columns_name=[],
-        mean=datasets['mean'],
-        std=datasets['std'],
-        shared=True,
-        feature_selection=datasets['feature_selection']
+        sklearn_preprocessing=datasets['sklearn_preprocessing'],
+        sklearn_feature_selection=datasets['sklearn_feature_selection'],
+        shared=True
     )
 
     datasets['test_set'] = test_set
@@ -140,11 +143,11 @@ def theano_experiments():
     multilayer_perceptron = MLP(
         input=x,
         n_in=n_in,
-        hidden_layers_sizes=[1000, 700, 500, 400, 300],
+        hidden_layers_sizes=[1000],
         n_out=n_out,
         numpy_rng=rgn,
-        dropout_rate=.5,
-        activation_function=T.nnet.relu  # T.tanh
+        dropout_rate=None,
+        activation_function=T.tanh  # T.nnet.relu
     )
 
     deep_belief_network = DBN(
@@ -164,18 +167,18 @@ def theano_experiments():
     )
 
     models = [
+        ('Multilayer Perceptron', multilayer_perceptron),
         ('Gaussian Deep Belief Network', gaussian_deep_belief_network),
         ('Deep Belief Network', deep_belief_network),
-        ('Multilayer Perceptron', multilayer_perceptron),
         ('Linear Regression', linear_regression_model)
     ]
 
     params = {
         'learning_rate': .01,
-        'annealing_learning_rate': .9999,
+        'annealing_learning_rate': 1.,
         'l1_learning_rate': 0.01,
         'l2_learning_rate': 0.001,
-        'n_epochs': 100,
+        'n_epochs': 500,
         'batch_size': 20,
         'pre_training_epochs': 50,
         'pre_train_lr': 0.001,

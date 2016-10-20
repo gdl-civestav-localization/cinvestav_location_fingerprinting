@@ -179,7 +179,7 @@ def read_dataset(
     result = result.astype(np.float32, copy=False)
 
     if sklearn_feature_selection is not None:
-        dataset = sklearn_feature_selection.fit_transform(dataset)
+        dataset = sklearn_feature_selection.fit_transform(dataset, result[:,0:1])
 
     # Normalized dataset
     if sklearn_preprocessing is not None:

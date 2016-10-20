@@ -214,7 +214,7 @@ def train(
         )
 
     ###############
-    # TRAIN MODEL #
+    # TRAIN MODEL #8
     ###############
     train_model, test_model, validate_model = train_functions(
         model=model,
@@ -241,9 +241,15 @@ def train(
     test_score = 0.
     start_time = timeit.default_timer()
 
+    numpy.random.seed(5)
     while (epoch < n_epochs) and (not done_looping):
         epoch = epoch + 1
-        for minibatch_index in xrange(n_train_batches):
+
+        # Shuffle batches
+        train_batches = numpy.arange(n_train_batches)
+        numpy.random.shuffle(train_batches)
+
+        for minibatch_index in train_batches:
             mini_batch_avg_cost = train_model(minibatch_index)
             # print mini_batch_avg_cost
 
@@ -281,13 +287,13 @@ def train(
                     test_score = [test_model(i) for i in xrange(n_test_batches)]
                     test_score = numpy.mean(test_score) * 100.
 
-                    if 'pydevd' in sys.modules:
-                        print '  -epoch {}, minibatch {}/{}, test error of best model {}.'.format(
-                            epoch,
-                            minibatch_index + 1,
-                            n_train_batches,
-                            test_score
-                        )
+                    # if 'pydevd' in sys.modules:
+                    print '  -epoch {}, minibatch {}/{}, test error of best model {}.'.format(
+                        epoch,
+                        minibatch_index + 1,
+                        n_train_batches,
+                        test_score
+                    )
 
             if patience <= iter:
                 done_looping = True

@@ -35,8 +35,12 @@ class LinearRegression(object):
         # initialize with 0 the weights W as a matrix of shape (n_in, n_out)
         W_values = W
         if W is None:
-            W_values = numpy.zeros(
-                (n_in, n_out),
+            W_values = numpy.asarray(
+                numpy.random.uniform(
+                    low=-numpy.sqrt(6. / (n_in + n_out)),
+                    high=numpy.sqrt(6. / (n_in + n_out)),
+                    size=(n_in, n_out)
+                ),
                 dtype=theano.config.floatX
             )
         self.W = theano.shared(value=W_values, name='W', borrow=True)
@@ -66,7 +70,7 @@ class LinearRegression(object):
             gamma=self.gamma,
             beta=self.beta,
             mean=linear.mean((0,), keepdims=True),
-            std=T.ones_like(linear.var((0,), keepdims=True)),
+            std=linear.std((0,), keepdims=True),
             mode='high_mem'
         )
 

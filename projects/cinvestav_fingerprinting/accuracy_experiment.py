@@ -12,7 +12,7 @@ from models.regression.sklearn_models.sklearn_network import SklearnNetwork
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn import preprocessing
-from sklearn.feature_selection import VarianceThreshold
+from sklearn import feature_selection
 from models.regression.sklearn_models.rbf import RBF
 
 
@@ -27,7 +27,7 @@ def sklearn_experiments():
         skipped_columns=[],
         label_encoding_columns_name=[],
         sklearn_preprocessing=preprocessing.StandardScaler(with_mean=True, with_std=True),
-        sklearn_feature_selection=VarianceThreshold(threshold=(.8 * (1 - .8))),
+        sklearn_feature_selection=feature_selection.VarianceThreshold(),
         train_ratio=1,
         test_ratio=0,
         valid_ratio=0
@@ -53,13 +53,13 @@ def sklearn_experiments():
     # Create Radial Basis Networks
     rbf = RBF(
         input_length=n_in,
-        hidden_length=50,
+        hidden_length=500,
         out_lenght=n_out
     )
 
     # Create KNN
     knn = SklearnNetwork(
-        sklearn_model=KNeighborsRegressor(n_neighbors=5),
+        sklearn_model=KNeighborsRegressor(n_neighbors=10),
         num_output=n_out
     )
 
@@ -92,21 +92,21 @@ def theano_experiments():
     rgn = numpy.random.RandomState(seed)
 
     datasets = DatasetManager.read_dataset(
-        dataset_name=os.path.join(os.path.dirname(__file__), "dataset", dataset_name),
+        dataset_name=os.path.join(os.path.dirname(__file__), 'dataset', 'meters', dataset_name),
         shared=True,
         seed=seed,
         expected_output=['result_x', 'result_y'],
         skipped_columns=[],
         label_encoding_columns_name=[],
         sklearn_preprocessing=preprocessing.StandardScaler(with_mean=True, with_std=True),
-        sklearn_feature_selection=VarianceThreshold(threshold=(.8 * (1 - .8))),
+        sklearn_feature_selection=feature_selection.VarianceThreshold(),
         train_ratio=.8,
         test_ratio=0,
         valid_ratio=.2
     )
 
     test_set = DatasetManager.get_prediction_set(
-        dataset_name=os.path.join(os.path.dirname(__file__), "dataset", 'cinvestav_labeled_test.csv'),
+        dataset_name=os.path.join(os.path.dirname(__file__), 'dataset', 'meters', 'cinvestav_labeled_test.csv'),
         expected_output=['result_x', 'result_y'],
         label_encoding_columns_name=[],
         skipped_columns=[],
@@ -152,7 +152,7 @@ def theano_experiments():
 
     deep_belief_network = DBN(
         n_visible=n_in,
-        hidden_layers_sizes=[100, 70, 50, 40, 30],
+        hidden_layers_sizes=[100, 70, 50, 40],
         n_out=n_out,
         numpy_rng=rgn,
         gaussian_visible=False
@@ -168,8 +168,8 @@ def theano_experiments():
 
     models = [
         ('Multilayer Perceptron', multilayer_perceptron),
-        ('Gaussian Deep Belief Network', gaussian_deep_belief_network),
         ('Deep Belief Network', deep_belief_network),
+        ('Gaussian Deep Belief Network', gaussian_deep_belief_network),
         ('Linear Regression', linear_regression_model)
     ]
 
@@ -183,7 +183,9 @@ def theano_experiments():
         'pre_training_epochs': 50,
         'pre_train_lr': 0.001,
         'k': 1,
-        'datasets': datasets
+        'datasets': datasets,
+        'noise_rate': .1,
+        'dropout_rate': None
     }
 
     run_theano_experiments(

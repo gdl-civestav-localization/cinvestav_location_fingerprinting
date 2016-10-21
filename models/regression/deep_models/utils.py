@@ -42,8 +42,6 @@ def dropout(input, noise_level=0.5, mrg=None, rescale=True):
     if mrg is None:
         mrg = theano_random
 
-    print "DropOUt"
-
     keep_probability = 1 - noise_level
     mask = mrg.binomial(p=keep_probability, n=1, size=input.shape, dtype=theano.config.floatX)
 

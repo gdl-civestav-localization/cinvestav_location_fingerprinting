@@ -95,7 +95,9 @@ def run_theano_experiments(models, seed, params, task_type='regression'):
             name_model=cpickle_name,
             pre_training_epochs=params['pre_training_epochs'],
             pre_train_lr=params['pre_train_lr'],
-            k=params['k']
+            k=params['k'],
+            noise_rate=params['noise_rate'],
+            dropout_rate=params['dropout_rate']
         )
 
         # Test

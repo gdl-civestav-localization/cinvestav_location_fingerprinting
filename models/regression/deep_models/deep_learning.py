@@ -10,7 +10,7 @@ import utils
 
 
 def train_functions(model, datasets, batch_size, learning_rate, annealing_learning_rate,
-                    l1_learning_rate, l2_learning_rate):
+                    l1_learning_rate, l2_learning_rate, dropout_rate=None, noise_rate=None):
     """
         Generates a function `train` that implements one step of fine-tuning,
         a function `validate` that computes the error on a batch from the validation set
@@ -35,29 +35,19 @@ def train_functions(model, datasets, batch_size, learning_rate, annealing_learni
         :param l2_learning_rate: L2-norm's weight when added to the cost
         """
     train_set_x, train_set_y = datasets['train_set']
-    valid_set_x, valid_set_y = datasets['valid_set']
-    test_set_x, test_set_y = datasets['test_set']
 
     y = T.matrix('y')
     index = T.lscalar()
 
     # compiling a Theano function that computes the mistakes that are made by the model on a mini batch
     test_model = theano.function(
-        inputs=[index],
-        outputs=error_function(model, y),
-        givens={
-            model.input: test_set_x[index * batch_size: (index + 1) * batch_size],
-            y: test_set_y[index * batch_size: (index + 1) * batch_size]
-        }
+        inputs=[model.input, y],
+        outputs=error_function(model, y)
     )
 
     validate_model = theano.function(
-        inputs=[index],
-        outputs=error_function(model, y),
-        givens={
-            model.input: valid_set_x[index * batch_size: (index + 1) * batch_size],
-            y: valid_set_y[index * batch_size: (index + 1) * batch_size]
-        }
+        inputs=[model.input, y],
+        outputs=error_function(model, y)
     )
 
     # the cost we minimize during training is the model cost of plus the regularization terms (L1 and L2)
@@ -86,12 +76,19 @@ def train_functions(model, datasets, batch_size, learning_rate, annealing_learni
     for param, gparam in zip(model.params, gparams):
         updates.append((param, param - state_learning_rate * gparam))
 
+    model_input = train_set_x[index * batch_size: (index + 1) * batch_size]
+    if noise_rate is not None:
+        model_input = utils.add_gaussian(input=model_input, noise_level=noise_rate)
+
+    if dropout_rate is not None:
+        model_input = utils.dropout(input=model_input, noise_level=dropout_rate, rescale=True)
+
     train_model = theano.function(
         inputs=[index],
         outputs=loss_function,
         updates=updates,
         givens={
-            model.input: train_set_x[index * batch_size: (index + 1) * batch_size],
+            model.input: model_input,
             y: train_set_y[index * batch_size: (index + 1) * batch_size]
         }
     )
@@ -114,12 +111,7 @@ def cost_function(model, y):
             ('y', y.type, 'y_pred', model.output.type)
         )
 
-    if hasattr(model, 'drop_output') and model.drop_output is not None:
-        print "Drop"
-        return T.mean(.5 * (model.drop_output - y) ** 2)
-    else:
-        print "NOrmal"
-        return T.mean(.5 * (model.output - y) ** 2)
+    return T.mean((model.output - y) ** 2)
 
 
 def error_function(model, y):
@@ -136,8 +128,7 @@ def error_function(model, y):
             'y should have the same shape as self.y_pred',
             ('y', y.type, 'y_pred', model.output.type)
         )
-    return T.mean(.5 * (model.output - y) ** 2)
-    # return T.mean(T.abs_(model.output - y))
+    return T.mean((model.output - y) ** 2)
 
 
 def train(
@@ -152,7 +143,9 @@ def train(
         batch_size=20,
         pre_training_epochs=10,
         pre_train_lr=0.01,
-        k=1
+        k=1,
+        dropout_rate=None,
+        noise_rate=None
 ):
     """
     Train sklearn_models.
@@ -195,8 +188,6 @@ def train(
     """
     # compute number of mini batches for training, validation and testing
     n_train_batches = datasets['train_set'][0].get_value(borrow=True).shape[0] / batch_size
-    n_valid_batches = datasets['valid_set'][0].get_value(borrow=True).shape[0] / batch_size
-    n_test_batches = datasets['test_set'][0].get_value(borrow=True).shape[0] / batch_size
 
     print '---------------------------------------', model.__class__.__name__, '---------------------------------------'
 
@@ -223,7 +214,9 @@ def train(
         learning_rate=learning_rate,
         annealing_learning_rate=annealing_learning_rate,
         l1_learning_rate=l1_learning_rate,
-        l2_learning_rate=l2_learning_rate
+        l2_learning_rate=l2_learning_rate,
+        dropout_rate=dropout_rate,
+        noise_rate=noise_rate
     )
 
     print '... training'
@@ -242,6 +235,10 @@ def train(
     start_time = timeit.default_timer()
 
     numpy.random.seed(5)
+
+    valid_set_x, valid_set_y = datasets['valid_set']
+    test_set_x, test_set_y = datasets['test_set']
+
     while (epoch < n_epochs) and (not done_looping):
         epoch = epoch + 1
 
@@ -258,7 +255,7 @@ def train(
 
             if (iter + 1) % validation_frequency == 0:
                 # compute zero-one loss on validation set
-                validation_losses = [validate_model(i) for i in xrange(n_valid_batches)]
+                validation_losses = validate_model(valid_set_x.get_value(), valid_set_y.get_value())
                 validation_losses = numpy.mean(validation_losses) * 100.
 
                 # if 'pydevd' in sys.modules:
@@ -277,14 +274,15 @@ def train(
                         # print patience
 
                     # Save best model
-                    with open(os.path.join(os.path.abspath(os.path.dirname(sys.argv[0])), 'trained_models', name_model), 'wb') as f:
+                    with open(os.path.join(os.path.abspath(os.path.dirname(sys.argv[0])), 'trained_models', name_model),
+                              'wb') as f:
                         cPickle.dump(model, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
                     best_validation_loss = validation_losses
                     best_epoch = epoch
 
                     # test it on the test set
-                    test_score = [test_model(i) for i in xrange(n_test_batches)]
+                    test_score = test_model(test_set_x.get_value(), test_set_y.get_value())
                     test_score = numpy.mean(test_score) * 100.
 
                     # if 'pydevd' in sys.modules:
@@ -301,12 +299,12 @@ def train(
 
     end_time = timeit.default_timer()
     print 'Optimization complete. \nBest validation score {} obtained at epoch {}, \n' \
-        'Test performance {}.\nIteration {}'.format(
-            best_validation_loss,
-            best_epoch,
-            test_score,
-            epoch
-        )
+          'Test performance {}.\nIteration {}'.format(
+        best_validation_loss,
+        best_epoch,
+        test_score,
+        epoch
+    )
 
     print 'Model: {}, ran for {}'.format(
         model.__class__.__name__,

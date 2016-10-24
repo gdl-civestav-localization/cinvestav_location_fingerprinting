@@ -1,4 +1,5 @@
 import os
+import theano
 import theano.tensor as T
 import numpy
 
@@ -82,6 +83,7 @@ def sklearn_experiments():
         models=models,
         seed=seed,
         params=params,
+        experiment_name='traditional_algorithms',
         task_type='regression'
     )
 
@@ -132,59 +134,60 @@ def theano_experiments():
     n_in = train_set_x.get_value().shape[1]
     n_out = train_set_y.get_value().shape[1]
 
-    x = T.matrix('x')
-
-    linear_regression_model = LinearRegression(
-        input=x,
-        n_in=n_in,
-        n_out=n_out
-    )
-
-    multilayer_perceptron = MLP(
-        input=x,
-        n_in=n_in,
-        hidden_layers_sizes=[1000],
-        n_out=n_out,
-        numpy_rng=rgn,
-        dropout_rate=None,
+    dnn_tanh_models = get_neural_networks(
+        n_in,
+        n_out,
+        rgn,
         activation_function=T.tanh  # T.nnet.relu
     )
 
-    deep_belief_network = DBN(
-        n_visible=n_in,
-        hidden_layers_sizes=[100, 70, 50, 40],
-        n_out=n_out,
-        numpy_rng=rgn,
-        gaussian_visible=False
+    dnn_relu_models = get_neural_networks(
+        n_in,
+        n_out,
+        rgn,
+        activation_function=T.nnet.relu
     )
 
-    gaussian_deep_belief_network = DBN(
-        n_visible=n_in,
-        hidden_layers_sizes=[100, 70, 50, 40, 30],
-        n_out=n_out,
-        numpy_rng=rgn,
-        gaussian_visible=True
+    dnn_sigmoid_models = get_neural_networks(
+        n_in,
+        n_out,
+        rgn,
+        activation_function=T.nnet.sigmoid
     )
 
-    models = [
-        ('Multilayer Perceptron', multilayer_perceptron),
-        ('Deep Belief Network', deep_belief_network),
-        ('Gaussian Deep Belief Network', gaussian_deep_belief_network),
-        ('Linear Regression', linear_regression_model)
-    ]
+    dbn_models = get_dbn(
+        n_in,
+        n_out,
+        rgn,
+        gaussian=False
+    )
+
+    gdbn_models = get_dbn(
+        n_in,
+        n_out,
+        rgn,
+        gaussian=True
+    )
+
+    models = []
+    models.extend(dnn_relu_models)
+    dnn_sigmoid_models.extend(dnn_tanh_models)
+    models.extend(dnn_tanh_models)
+    models.extend(gdbn_models)
+    models.extend(dbn_models)
 
     params = {
         'learning_rate': .01,
-        'annealing_learning_rate': 1.,
+        'annealing_learning_rate': .99999,
         'l1_learning_rate': 0.01,
         'l2_learning_rate': 0.001,
-        'n_epochs': 500,
+        'n_epochs': 10000,
         'batch_size': 20,
         'pre_training_epochs': 50,
         'pre_train_lr': 0.001,
         'k': 1,
         'datasets': datasets,
-        'noise_rate': .1,
+        'noise_rate': None,
         'dropout_rate': None
     }
 
@@ -192,8 +195,53 @@ def theano_experiments():
         models=models,
         seed=seed,
         params=params,
+        experiment_name='all_models_with_out_noise_neither_dropout',
         task_type='regression'
     )
+
+
+def get_neural_networks(n_in, n_out, rgn, activation_function):
+    if activation_function == theano.tensor.nnet.sigmoid:
+        activation_function_name = 'sigmoid'
+    elif activation_function == T.nnet.relu:
+        activation_function_name = 'relu'
+    else:
+        activation_function_name = 'tanh'
+
+    l = 1000
+    models = []
+    for i in range(1, 11, 1):
+        hidden_layers = [l - 100 * x for x in range(0, i)]
+
+        multilayer_perceptron = MLP(
+            input=T.matrix('x'),
+            n_in=n_in,
+            hidden_layers_sizes=hidden_layers,
+            n_out=n_out,
+            numpy_rng=rgn,
+            dropout_rate=None,
+            activation_function=activation_function
+        )
+        models.append(('dnn_layers_' + str(i) + '_func_' + activation_function_name, multilayer_perceptron))
+    return models
+
+
+def get_dbn(n_in, n_out, rgn, gaussian):
+    l = 1000
+    models = []
+    for i in range(1, 11, 1):
+        hidden_layers = [l - 100 * x for x in range(0, i)]
+
+        gaussian_deep_belief_network = DBN(
+            n_visible=n_in,
+            hidden_layers_sizes=hidden_layers,
+            n_out=n_out,
+            numpy_rng=rgn,
+            gaussian_visible=gaussian
+        )
+
+        models.append(('dbn_layers_' + str(i) + '_gaussian_' + str(gaussian), gaussian_deep_belief_network))
+    return models
 
 
 if __name__ == '__main__':

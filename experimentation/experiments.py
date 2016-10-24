@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 
-def run_experiments_sklearn(models, seed, params, task_type='regression'):
+def run_experiments_sklearn(models, seed, params, experiment_name, task_type='regression'):
     datasets = params['datasets']
     params['datasets'] = None
 
@@ -40,13 +40,19 @@ def run_experiments_sklearn(models, seed, params, task_type='regression'):
 
         dict_results = {
             'Name': name,
+            'test_score': test_error,
+            'test_error_x_y': test_error2,
             'predicted_values': predicted_values,
+            'test_set': test_set_y,
             'seed': seed
         }
         results.append(dict_results)
 
     # Save results
-    experiments_path = os.path.join(os.path.dirname(sys.argv[0]), 'experiments', task_type + '_' + '_sklearn_experiment_results_seed_' + str(seed))
+    experiments_path = os.path.join(
+        os.path.dirname(sys.argv[0]), 'experiments', experiment_name + '_sklearn_seed_' + str(seed)
+    )
+
     with open(experiments_path, 'wb') as f:
         cPickle.dump(results, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
@@ -64,7 +70,7 @@ def run_experiments_sklearn(models, seed, params, task_type='regression'):
     )
 
 
-def run_theano_experiments(models, seed, params, task_type='regression'):
+def run_theano_experiments(models, seed, params, experiment_name, task_type='regression'):
     if task_type == 'regression':
         from models.regression.deep_models.deep_learning import train, predict
     elif task_type == 'classification':
@@ -81,6 +87,8 @@ def run_theano_experiments(models, seed, params, task_type='regression'):
     results = [('params', params)]
     predictions = []
     for name, model in models:
+        print '---------------------------------------', name, '---------------------------------------'
+
         cpickle_name = task_type + '_' + name + '.save'
 
         best_validation_loss, test_score = train(
@@ -125,13 +133,18 @@ def run_theano_experiments(models, seed, params, task_type='regression'):
 
         dict_results = {
             'Name': name,
-            'test_score': test_score,
+            'test_score': test_error,
+            'test_error_x_y': test_error2,
+            'theano_test_score': test_score,
             'best_validation_loss': best_validation_loss,
             'predicted_values': predicted_values,
+            'test_set': test_set_y,
             'seed': seed
         }
         results.append(dict_results)
-    experiments_path = os.path.join(os.path.dirname(sys.argv[0]), 'experiments', task_type + '_' + 'deep_experiment_results_seed_' + str(seed))
+    experiments_path = os.path.join(
+        os.path.dirname(sys.argv[0]), 'experiments', experiment_name + '_theano_seed_' + str(seed)
+    )
     with open(experiments_path, 'wb') as f:
         cPickle.dump(results, f, protocol=cPickle.HIGHEST_PROTOCOL)
 

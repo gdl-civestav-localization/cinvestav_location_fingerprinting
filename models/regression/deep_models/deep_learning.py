@@ -189,8 +189,6 @@ def train(
     # compute number of mini batches for training, validation and testing
     n_train_batches = datasets['train_set'][0].get_value(borrow=True).shape[0] / batch_size
 
-    print '---------------------------------------', model.__class__.__name__, '---------------------------------------'
-
     #########################
     # PRETRAINING THE MODEL #
     #########################
@@ -223,7 +221,7 @@ def train(
 
     # Early-stopping parameters
     patience = 10000  # look as this many examples regardless
-    patience_increase = 3  # wait this much longer when a new best is found
+    patience_increase = 2  # wait this much longer when a new best is found
     improvement_threshold = 0.9999  # a relative improvement of this much is considered significant
     validation_frequency = min(n_train_batches, patience / 2)
     done_looping = False

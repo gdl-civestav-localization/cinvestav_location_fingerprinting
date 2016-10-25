@@ -4,7 +4,6 @@ import theano.tensor as T
 import numpy
 
 from experimentation.experiments import run_theano_experiments, run_experiments_sklearn
-from models.regression.deep_models.linear_regression import LinearRegression
 from models.regression.deep_models.mlp import MLP
 from models.regression.deep_models.dbn import DBN
 from datasets import DatasetManager
@@ -171,7 +170,7 @@ def theano_experiments():
 
     models = []
     models.extend(dnn_relu_models)
-    dnn_sigmoid_models.extend(dnn_tanh_models)
+    models.extend(dnn_sigmoid_models)
     models.extend(dnn_tanh_models)
     models.extend(gdbn_models)
     models.extend(dbn_models)
@@ -181,10 +180,10 @@ def theano_experiments():
         'annealing_learning_rate': .99999,
         'l1_learning_rate': 0.01,
         'l2_learning_rate': 0.001,
-        'n_epochs': 10000,
+        'n_epochs': 100,
         'batch_size': 20,
         'pre_training_epochs': 50,
-        'pre_train_lr': 0.001,
+        'pre_train_lr': 0.01,
         'k': 1,
         'datasets': datasets,
         'noise_rate': None,
@@ -208,10 +207,10 @@ def get_neural_networks(n_in, n_out, rgn, activation_function):
     else:
         activation_function_name = 'tanh'
 
-    l = 1000
+    l = 500
     models = []
     for i in range(1, 11, 1):
-        hidden_layers = [l - 100 * x for x in range(0, i)]
+        hidden_layers = [l - 50 * x for x in range(0, i)]
 
         multilayer_perceptron = MLP(
             input=T.matrix('x'),
@@ -227,10 +226,10 @@ def get_neural_networks(n_in, n_out, rgn, activation_function):
 
 
 def get_dbn(n_in, n_out, rgn, gaussian):
-    l = 1000
+    l = 500
     models = []
     for i in range(1, 11, 1):
-        hidden_layers = [l - 100 * x for x in range(0, i)]
+        hidden_layers = [l - 50 * x for x in range(0, i)]
 
         gaussian_deep_belief_network = DBN(
             n_visible=n_in,

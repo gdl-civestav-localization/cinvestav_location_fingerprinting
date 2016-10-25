@@ -73,8 +73,6 @@ def run_experiments_sklearn(models, seed, params, experiment_name, task_type='re
 def run_theano_experiments(models, seed, params, experiment_name, task_type='regression'):
     if task_type == 'regression':
         from models.regression.deep_models.deep_learning import train, predict
-    elif task_type == 'classification':
-        from models.classification.deep_models.deep_learning import train, predict
     else:
         raise NotImplementedError()
 

@@ -4,6 +4,11 @@ processing the outputs into a more understandable way.
 
 For example ``tile_raster_images`` helps in generating a easy to grasp
 image from a set of samples or weights.
+
+
+Noises functions are based on
+
+https://github.com/vitruvianscience/OpenDeep
 """
 
 import numpy

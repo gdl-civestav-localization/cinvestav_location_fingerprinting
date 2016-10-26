@@ -180,13 +180,13 @@ def theano_experiments():
         'annealing_learning_rate': .99999,
         'l1_learning_rate': 0.01,
         'l2_learning_rate': 0.001,
-        'n_epochs': 100,
+        'n_epochs': 2000,
         'batch_size': 20,
         'pre_training_epochs': 50,
         'pre_train_lr': 0.01,
         'k': 1,
         'datasets': datasets,
-        'noise_rate': None,
+        'noise_rate': .1,
         'dropout_rate': None
     }
 
@@ -194,7 +194,7 @@ def theano_experiments():
         models=models,
         seed=seed,
         params=params,
-        experiment_name='all_models_with_out_noise_neither_dropout',
+        experiment_name='all_models_with_noise_without_dropout',
         task_type='regression'
     )
 

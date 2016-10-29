@@ -31,17 +31,18 @@ def plot_per_experiment():
         dbn_models = results[40:50]
 
         plt.figure(filename)
-        plt.ylabel('Accuracy (m)', fontsize=30)
-        plt.xlabel('Layers', fontsize=30)
+        plt.ylabel('Accuracy (m)', fontsize=40)
+        plt.xlabel('Layers', fontsize=40)
         plt.grid(True)
         plt.tick_params(axis='both', which='major', labelsize=20)
+        plt.xticks(range(0, 11, 1))
 
         plt.plot(get_metrics(results=dnn_relu_models), label='DNN Relu', linewidth=5.0)
         plt.plot(get_metrics(results=dnn_sigmoid_models), label='DNN Sigmoid', linewidth=5.0)
         plt.plot(get_metrics(results=dnn_tanh_models), label='DNN Tanh', linewidth=5.0)
         plt.plot(get_metrics(results=gdbn_models), label='GR-DBN', linewidth=5.0)
         plt.plot(get_metrics(results=dbn_models), label='DBN', linewidth=5.0)
-        plt.legend(fontsize='large')
+        plt.legend(fontsize='x-large')
     plt.show()
 
 
@@ -66,6 +67,23 @@ def plot_all_experiments():
     plt.show()
 
 
+def get_latex_table():
+    with open('traditional_algorithms_sklearn_seed_5', 'rb') as f:
+        results = cPickle.load(f)
+        results.pop(0)  # Remove params
+
+    with open('all_models_with_out_noise_neither_dropout_theano_seed_5', 'rb') as f:
+        deep_results = cPickle.load(f)
+
+    results.append(deep_results[8])
+    results.append(deep_results[18])
+    results.append(deep_results[28])
+    results.append(deep_results[38])
+    results.append(deep_results[48])
+
+    get_metrics(results=results, latex=False)
+
+
 if __name__ == '__main__':
     """
     seed = 40
@@ -87,5 +105,5 @@ if __name__ == '__main__':
     plt.show()
     """
     # plot_all_experiments()
-
-    plot_per_experiment()
+    # plot_per_experiment()
+    get_latex_table()

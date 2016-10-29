@@ -8,7 +8,7 @@ pd.set_option('display.max_columns', 500)
 show_results = True
 
 
-def get_metrics(results):
+def get_metrics(results, latex=False):
     lst_error = [0]
     metrics = []
     for i in results:
@@ -31,11 +31,11 @@ def get_metrics(results):
             max_value,
             avg_value,
             std_value,
-            test_error[int(len(test_error) * .95)],
-            test_error[int(len(test_error) * .66)],
+            test_error[int(len(test_error) * .90)],
+            test_error[int(len(test_error) * .70)],
             test_error[int(len(test_error) * .50)]
         ])
-        lst_error.append(i['theano_test_score'])
+        lst_error.append(avg_value)
 
     columns = [
         '',
@@ -43,8 +43,8 @@ def get_metrics(results):
         'Max',
         'Mean',
         'Std',
-        '95',
-        '66',
+        '90',
+        '70',
         '50'
     ]
     dataframe = pd.DataFrame(
@@ -55,5 +55,8 @@ def get_metrics(results):
     dataframe.columns = dataframe.iloc[0]
     dataframe = dataframe[1:]
     if show_results:
-        print dataframe.head(10)
+        if latex:
+            print dataframe.to_latex()
+        else:
+            print dataframe.head(10)
     return lst_error

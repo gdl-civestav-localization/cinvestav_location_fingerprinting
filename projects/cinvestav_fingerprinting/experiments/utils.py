@@ -9,7 +9,7 @@ show_results = True
 
 
 def get_metrics(results, latex=False):
-    lst_error = [0]
+    lst_error = [None]
     metrics = []
     for i in results:
         model_name = i['Name']
@@ -51,9 +51,9 @@ def get_metrics(results, latex=False):
         data=metrics,
         columns=columns
     )
-    dataframe = dataframe.T
-    dataframe.columns = dataframe.iloc[0]
-    dataframe = dataframe[1:]
+    # dataframe = dataframe.T
+    # dataframe.columns = dataframe.iloc[0]
+    # dataframe = dataframe[1:]
     if show_results:
         if latex:
             print dataframe.to_latex()

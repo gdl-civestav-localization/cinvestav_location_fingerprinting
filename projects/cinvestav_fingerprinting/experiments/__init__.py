@@ -35,7 +35,9 @@ def plot_per_experiment():
         plt.xlabel('Layers', fontsize=40)
         plt.grid(True)
         plt.tick_params(axis='both', which='major', labelsize=20)
-        plt.xticks(range(0, 11, 1))
+        plt.xticks(range(0, 15, 1))
+        plt.xlim([0, 10])
+        plt.ylim([0, 9])
 
         plt.plot(get_metrics(results=dnn_relu_models), label='DNN Relu', linewidth=5.0)
         plt.plot(get_metrics(results=dnn_sigmoid_models), label='DNN Sigmoid', linewidth=5.0)
@@ -81,7 +83,7 @@ def get_latex_table():
     results.append(deep_results[38])
     results.append(deep_results[48])
 
-    get_metrics(results=results, latex=False)
+    get_metrics(results=results, latex=True)
 
 
 if __name__ == '__main__':
@@ -105,5 +107,5 @@ if __name__ == '__main__':
     plt.show()
     """
     # plot_all_experiments()
-    # plot_per_experiment()
-    get_latex_table()
+    plot_per_experiment()
+    # get_latex_table()
